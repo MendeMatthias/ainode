@@ -268,9 +268,7 @@ mod info_tests {
     async fn this_mac_says_what_it_is() {
         let i = super::system_info().await;
         assert!(i.os.starts_with("macOS "), "{i:?}");
-        // hw.model: "Mac17,2", "MacBookPro18,1", and "VirtualMac2,1" on a
-        // virtual Mac (GitHub's macOS runner).
-        assert!(i.machine.contains("Mac"), "{i:?}");
+        assert!(i.machine.contains("Mac"), "{i:?}"); // hw.model: "Mac17,2", "MacBookPro18,1", or "VirtualMac2,1" on a virtual Mac
         assert!(i.ram_bytes > 0);
     }
 }
