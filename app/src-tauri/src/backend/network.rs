@@ -1195,7 +1195,8 @@ mod tests {
                     let src = std::fs::read_to_string(&p).unwrap();
                     let code = src.rsplit_once("\nmod tests").map(|(a, _)| a).unwrap_or(&src);
                     let code: String = code.lines().filter(|l| !l.trim_start().starts_with("//")).collect::<Vec<_>>().join("\n");
-                    out.push((p.strip_prefix(env!("CARGO_MANIFEST_DIR")).unwrap().display().to_string(), code));
+                    // Forward slashes on Windows too: the tests below find a file by its name.
+                    out.push((p.strip_prefix(env!("CARGO_MANIFEST_DIR")).unwrap().display().to_string().replace('\\', "/"), code));
                 }
             }
         }
