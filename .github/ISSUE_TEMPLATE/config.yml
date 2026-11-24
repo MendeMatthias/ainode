@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/MendeMatthias/ainode/blob/main/SECURITY.md
+    about: Please do not open a public issue for a vulnerability. SECURITY.md says how to report one.
+  - name: What this project is trying to do
+    url: https://github.com/MendeMatthias/ainode/blob/main/docs/DIRECTION.md
+    about: What AInode is, how it follows upstream BTX's ModelNet, and what it will not become.
+  - name: A problem in BTX's own engine
+    url: https://github.com/btxchain/btx/issues
+    about: btx-modeld and the model network are developed upstream. A vulnerability in them goes to upstream's private channel (its SECURITY.md).

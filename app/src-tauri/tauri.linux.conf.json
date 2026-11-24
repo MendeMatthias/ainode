@@ -1,0 +1,52 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "AInode",
+        "width": 460,
+        "height": 760,
+        "minWidth": 420,
+        "minHeight": 640,
+        "resizable": true,
+        "maximizable": false,
+        "fullscreen": false,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "backgroundColor": "#000000",
+        "incognito": true,
+        "dragDropEnabled": false,
+        "acceptFirstMouse": true,
+        "backgroundThrottling": "disabled",
+        "create": false
+      }
+    ]
+  },
+  "bundle": {
+    "targets": [
+      "deb",
+      "appimage"
+    ],
+    "category": "Utility",
+    "shortDescription": "Open AI models over BTX, run on your computer",
+    "longDescription": "AInode fetches open AI models over the BTX model network, checks every piece against its published hash, and runs them on this computer with llama.cpp. No account, no cloud.",
+    "linux": {
+      "deb": {
+        "depends": [
+          "libssl3t64 | libssl3",
+          "libstdc++6 (>= 14)",
+          "libgcc-s1 (>= 14)"
+        ],
+        "recommends": [
+          "xdg-utils",
+          "libvulkan1"
+        ],
+        "section": "utils"
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    }
+  }
+}

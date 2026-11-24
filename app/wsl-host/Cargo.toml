@@ -1,0 +1,18 @@
+[package]
+name = "ainode-wsl"
+version = "0.1.0"
+description = "AInode on Windows: runs upstream's Linux btx-modeld inside AInode's WSL distribution and relays the app's JSON-RPC to its unix socket"
+license = "MIT"
+edition = "2021"
+publish = false
+
+# A Linux program shipped inside the Windows app's engine folder. Not part of
+# src-tauri: the Tauri bundler copies every bin target of that crate into the
+# app. Standard library only, so the whole of it is this one file.
+[dependencies]
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
+panic = "abort"

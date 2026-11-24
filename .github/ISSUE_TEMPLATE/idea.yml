@@ -1,0 +1,28 @@
+name: Idea
+description: A change or a feature to discuss before any code.
+labels: [idea]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Read [docs/DIRECTION.md](https://github.com/MendeMatthias/ainode/blob/main/docs/DIRECTION.md) first. AInode follows upstream BTX's ModelNet, is not a node and not a wallet, and never talks to hosts the user cannot see in it.
+        A vulnerability does not go here. Use [Report a vulnerability](https://github.com/MendeMatthias/ainode/security/advisories/new).
+  - type: textarea
+    id: what
+    attributes:
+      label: The idea
+      description: What a user would see or be able to do.
+    validations:
+      required: true
+  - type: textarea
+    id: upstream
+    attributes:
+      label: How it follows upstream
+      description: Which part of upstream BTX's ModelNet it uses. If it deviates from upstream's way, why.
+    validations:
+      required: true
+  - type: textarea
+    id: promise
+    attributes:
+      label: Does it change what the app promises?
+      description: Listening, sharing, what a host can see, what is stored, what is sent anywhere.

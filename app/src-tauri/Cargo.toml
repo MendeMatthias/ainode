@@ -1,0 +1,73 @@
+[package]
+name = "ainode"
+version = "0.9.1"
+description = "AInode: open AI models over the BTX model network, verified on your Mac, run locally"
+authors = ["Matthias Mende"]
+license = "MIT"
+edition = "2021"
+default-run = "ainode"
+
+[lib]
+name = "ainode_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2.12", features = [] }
+# A second launch focuses the first window instead of starting a second
+# backend that would find the first one's helper on the socket and stop it.
+tauri-plugin-single-instance = "2"
+minisign-verify = "0.2"
+semver = "1"
+base64 = "0.22"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# net: the helper's unix RPC socket and llama-server's loopback HTTP.
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "time", "sync", "fs", "io-util", "net", "signal"] }
+# statvfs, kill, geteuid.
+libc = "0.2"
+# The check-in with easybtx.com (backend/keeper.rs): the updater's own HTTPS
+# client and TLS, already in the build (rustls with ring, system proxy).
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "system-proxy"] }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
+
+# The runnable gguf is checked once against the catalog's sha256 before it is
+# loaded or revealed. "asm" uses the ARMv8 SHA instructions: 0.75 s for the
+# 2.2 GB 3B on an M5, against 3.8 s without (measured, release). The asm does
+# not build with MSVC; on x86_64 sha2 uses the SHA-NI instructions without it.
+[target.'cfg(not(windows))'.dependencies]
+sha2 = { version = "0.10", features = ["asm"] }
+# Updates (update.rs): the feed on ainode-releases, every offer bound to its
+# version and platform through the signed file name. The Mac's update is a
+# .tar.gz, which needs the plugin's "zip" feature (tar and flate2).
+tauri-plugin-updater = "2"
+
+[target.'cfg(windows)'.dependencies]
+sha2 = "0.10"
+# Windows installs the signed setup.exe as it is. Without "zip" the plugin
+# cannot unpack a .zip update, and the zip crate (3 RustSec advisories in
+# 4.6.1, security audit L2) is not in the Windows app.
+tauri-plugin-updater = { version = "2", default-features = false, features = ["rustls-tls", "system-proxy"] }
+# The chat key (the OS's CSPRNG; /dev/urandom elsewhere).
+getrandom = "0.3"
+# Processes (llama-server's pid, a job object so it dies with the app), disk
+# space and memory, and the data folder's permissions (acl.rs).
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_System_JobObjects", "Win32_Storage_FileSystem", "Win32_System_SystemInformation", "Win32_Security", "Win32_Security_Authorization", "Win32_UI_WindowsAndMessaging", "Win32_System_Registry"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+# The capability test runs Tauri's own IPC check (lib.rs tests). Not on
+# Windows: with Tauri's "test" feature the Windows test binary stops at load
+# (STATUS_ENTRYPOINT_NOT_FOUND, 0xc0000139: it imports a common-controls v6
+# function and a test binary has no application manifest), so no test ran
+# there. Windows proves the four commands in the running app (WebDriver,
+# lab/evidence/2026-10-19/security-audit-2).
+[target.'cfg(not(windows))'.dev-dependencies]
+tauri = { version = "2.12", features = ["test"] }
+
+# A debug build (the dev bridge) would otherwise spend over a minute hashing.
+[profile.dev.package.sha2]
+opt-level = 3

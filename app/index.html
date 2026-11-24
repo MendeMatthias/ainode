@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AInode</title>
+  </head>
+  <body>
+    <div class="plate" aria-hidden="true"></div>
+
+    <header class="bar" data-tauri-drag-region>
+      <div class="mark" data-tauri-drag-region>AI<b>NODE</b></div>
+      <div class="bar-actions">
+        <button class="icon-btn" id="themeBtn" title="Light or dark" aria-label="Switch theme">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5v11" /><path d="M8 2.5a5.5 5.5 0 0 1 0 11z" fill="currentColor"/></svg>
+        </button>
+        <button class="icon-btn" id="aboutBtn" title="Status and about" aria-label="Status and about">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 7.2v4"/><circle cx="8" cy="4.9" r=".5" fill="currentColor"/></svg>
+        </button>
+      </div>
+      <div class="ver" id="ver" title="AInode version: it goes up with every update"></div>
+    </header>
+
+    <main id="home">
+      <section class="hero">
+        <button class="core" id="core" data-state="stopped" aria-label="Start">
+          <svg viewBox="0 0 212 212" aria-hidden="true">
+            <circle class="ring ticks" cx="106" cy="106" r="103" />
+            <circle class="ring track" cx="106" cy="106" r="96" />
+            <circle class="ring arc" id="coreArc" cx="106" cy="106" r="96" stroke-dasharray="603.2" stroke-dashoffset="603.2" />
+            <circle class="ring dash" cx="106" cy="106" r="84" />
+            <circle class="ring" cx="106" cy="106" r="76" />
+          </svg>
+          <span class="disc"></span>
+          <span class="core-label" id="coreLabel"><span class="on">START</span><span class="off">STOP</span></span>
+          <span class="core-sub" id="coreSub"></span>
+        </button>
+        <p class="status" id="status" data-tone="idle"><span class="dot"></span><span id="statusText"></span></p>
+      </section>
+      <div class="update-bar" id="wslBar" role="alert" hidden>
+        <span id="wslText"></span>
+        <span class="update-acts"><button class="small-btn" id="wslGo">Restart</button></span>
+      </div>
+      <div class="update-bar" id="updateBar" role="status" hidden>
+        <span id="updateText"></span>
+        <span class="update-acts"><button class="small-btn" id="updateGo">Restart</button><button class="link-btn" id="updateLater">Later</button></span>
+      </div>
+
+      <div class="section-label"><span>Your models</span>
+        <span class="label-actions"><button class="pill-btn" id="networkBtn" title="What this AInode sees on BTX ModelNet: models, bounties, campaigns, links and search">Network</button><button class="pill-btn accent" id="storeBtn" title="Every model AInode can get">Store</button></span></div>
+      <section class="models" id="models" aria-live="polite"></section>
+
+      <footer class="foot">
+        <div class="meter" title="Space used of what you allowed">
+          <div class="bar-track"><div class="bar-fill" id="meterFill"></div></div>
+          <span id="meterText"></span>
+          <button class="link-btn" id="spaceChange" hidden>Change</button>
+        </div>
+        <button class="net-chip" id="netChip" data-tone="off" aria-label="BTX ModelNet">
+          <svg class="net-mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.6 2.8 12.6h10.4Z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><circle cx="8" cy="2.6" r="1.6" fill="currentColor"/><circle cx="2.8" cy="12.6" r="1.6" fill="currentColor"/><circle cx="13.2" cy="12.6" r="1.6" fill="currentColor"/></svg>
+          <span id="netChipText">BTX ModelNet</span>
+        </button>
+      </footer>
+    </main>
+
+    <!-- The space AInode may use: chosen at first run, changeable later from
+         the footer. Always stated in real numbers. -->
+    <section class="sheet" id="consent" hidden>
+      <div class="sheet-body">
+        <div class="mini-core" aria-hidden="true">
+          <svg viewBox="0 0 92 92"><circle class="ring dash" cx="46" cy="46" r="44" style="animation: spin 20s linear infinite; stroke: var(--accent)" /></svg>
+          <span class="disc"></span>
+        </div>
+        <h1>AI<b>NODE</b></h1>
+        <p class="lede" id="consentLede">Open AI models over BTX ModelNet. Checked piece by piece, run on this Mac. No account.</p>
+        <p class="where" id="where" hidden><span>Where</span><code id="wherePath"></code><button class="link-btn" id="whereChange">Change</button></p>
+        <div class="choices places" id="places" role="group" aria-label="The drive for AInode's models" hidden></div>
+        <div class="choices" id="choices" role="group" aria-label="Space AInode may use"></div>
+        <label class="custom-size">
+          <span>Or type a size</span>
+          <input id="customGb" inputmode="numeric" spellcheck="false" autocomplete="off" aria-label="Size in GB" />
+          <span>GB</span>
+        </label>
+        <p class="fine" id="consentFine"></p>
+        <button class="primary" id="consentGo">START</button>
+        <button class="link-btn cancel" id="consentCancel" hidden>Cancel</button>
+      </div>
+    </section>
+
+    <section class="panel" id="chat" hidden>
+      <div class="panel-head" data-tauri-drag-region>
+        <button class="icon-btn" id="chatBack" aria-label="Back">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 3 5 8l5 5"/></svg>
+        </button>
+        <div class="panel-title" id="chatTitle" data-tauri-drag-region></div>
+        <button class="head-btn" id="chatHistory" title="Chats kept on this Mac" hidden>History</button>
+        <button class="head-btn" id="chatClear" title="Clear the conversation and its memory">Clear</button>
+        <button class="icon-btn small" id="chatFeedback" title="Send feedback about AInode" aria-label="Send feedback about AInode">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z"/><path d="M8 5.5v2.2"/><circle cx="8" cy="9.2" r=".4" fill="currentColor"/></svg>
+        </button>
+        <span class="badge">on this Mac</span>
+      </div>
+      <div class="thread" id="thread"></div>
+      <div class="history" id="historySheet" hidden>
+        <div class="history-head"><b>Kept chats</b><button class="head-btn" id="historyClose">Close</button></div>
+        <div id="historyList"></div>
+        <p class="fine left history-note">Kept only on this Mac. Turn keeping off in Status.</p>
+      </div>
+      <div class="drop-veil" id="dropVeil" hidden><div><b>Drop to add</b><span>PDF, Markdown or text. Read on this Mac, never uploaded.</span></div></div>
+      <div class="composer">
+        <div class="composer-row">
+          <button class="think-toggle" id="think" aria-pressed="true" title="Think first: a few seconds more, better and shorter answers">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M8 1.5v3M8 11.5v3M1.5 8h3M11.5 8h3M3.4 3.4l2.1 2.1M10.5 10.5l2.1 2.1M12.6 3.4l-2.1 2.1M5.5 10.5l-2.1 2.1"/></svg>
+            <span>Think</span>
+          </button>
+          <button class="attach" id="attach" title="Add your own PDF, Markdown or text files: AInode reads them on this Mac and looks in them first" aria-label="Add files">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>
+          </button>
+          <input type="file" id="attachInput" accept=".pdf,.md,.markdown,.txt,application/pdf,text/markdown,text/plain" multiple hidden />
+          <textarea id="prompt" rows="1" placeholder="Ask anything" aria-label="Message"></textarea>
+          <button class="send" id="send" aria-label="Send" disabled>
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/></svg>
+          </button>
+        </div>
+        <p class="fine">Runs on this Mac. Nothing you type or add leaves it. Drop files here to add your own knowledge.</p>
+      </div>
+    </section>
+
+    <!-- The store (0.7.0): every model AInode can get, with room to read. -->
+    <section class="panel" id="store" hidden>
+      <div class="panel-head" data-tauri-drag-region>
+        <button class="icon-btn" id="storeBack" aria-label="Back">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 3 5 8l5 5"/></svg>
+        </button>
+        <div class="panel-title" data-tauri-drag-region>Store</div>
+        <span class="badge">free</span>
+      </div>
+      <div class="about">
+        <p class="store-lede">Open models, free to get. Each one is fetched over BTX and checked piece by piece against its link, then runs only on this Mac.</p>
+        <section class="models store-list" id="storeList" aria-live="polite"></section>
+        <p class="honest">Checked means intact, not safe or correct. Each model has its publisher's licence: read it before you rely on it. Getting a model needs twice its size for a moment (the checked pieces and a copy ready to run); right after the download AInode keeps only the copy.</p>
+      </div>
+    </section>
+
+    <!-- The Network view (0.7.0): bounties and campaigns, read-only, and the
+         human path from upstream's HUMANS.md: open a link, fetch it free, search. -->
+    <section class="panel" id="network" hidden>
+      <div class="panel-head" data-tauri-drag-region>
+        <button class="icon-btn" id="networkBack" aria-label="Back">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 3 5 8l5 5"/></svg>
+        </button>
+        <div class="panel-title" data-tauri-drag-region>BTX ModelNet</div>
+        <button class="icon-btn" id="networkGuide" data-url="https://easybtx.com/ai/network" title="The guide: what you can type here and what each part means" aria-label="Open the Network guide">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 7.2v4"/><circle cx="8" cy="4.9" r=".5" fill="currentColor"/></svg>
+        </button>
+        <button class="head-btn" id="networkRefresh">Refresh</button>
+      </div>
+      <div class="about">
+        <div id="netCover" class="net-cover" aria-live="polite"></div>
+        <h2>Open a link or search</h2>
+        <div class="row-input">
+          <input id="netInput" placeholder="btx://… or a few words" spellcheck="false" autocomplete="off" />
+          <button class="small-btn" id="netGo">Go</button>
+        </div>
+        <p class="fine left net-hint">A link is read on this Mac first; search words go to the hosts. The (i) above shows what you can type.</p>
+        <div id="netResult"></div>
+        <div id="netLinksWrap" hidden><h2>From links</h2><div class="models" id="netLinks"></div></div>
+        <h2>Models this AInode sees on the network</h2>
+        <div id="netModels" class="net-list"></div>
+        <h2>Bounties</h2>
+        <div id="netBounties" class="net-list"></div>
+        <h2>Release campaigns</h2>
+        <div id="netCampaigns" class="net-list"></div>
+        <h2>Hosts this AInode asks when it searches</h2>
+        <div class="net-index">
+          <p class="fine left net-index-about">Every search goes to your model host, and to any host you add here. A search runs once after each engine start, as soon as this window is shown; when this view opens or refreshes; and when you search. Each host asked sees this computer’s IP address, and the words you search for. AInode fetches models only from its model host, not from the hosts you add.</p>
+          <div id="netIndexList" class="net-index-list" aria-live="polite"></div>
+          <p id="netIndexStatus" class="net-index-status"></p>
+          <div class="row-input">
+            <input id="netIndexInput" placeholder="host.example:29447" spellcheck="false" autocomplete="off" aria-label="A host to ask when searching, as host:port" />
+            <button class="small-btn" id="netIndexAdd">Add</button>
+          </div>
+          <p class="fine left net-hint">A host name or an IP address, and its port. Up to 4 hosts: each one that does not answer makes every search wait a little longer. A host the engine cannot reach from here is simply not asked.</p>
+        </div>
+        <p class="honest">Read-only. AInode only downloads: it never funds, awards or pays, and has no wallet. Funding a bounty or a release takes a BTX node with a wallet; "How to fund this" on a card says what that takes.
+          Lists and counts here are what this AInode's hosts answered, not a count of the whole network. An amount raised is shown only when the engine knows it from the chain.
+          Unlike upstream's own app, AInode uses one host at a time and chats only with the models in its store; a model from a link is kept as files you can open.</p>
+        <ul class="links">
+          <li><button data-url="https://github.com/btxchain/btx/blob/main/doc/modelnet/model-economy.md">How bounties and release campaigns work</button></li>
+          <li><button data-url="https://github.com/btxchain/btx/blob/main/HUMANS.md">BTX for humans: the steps this view follows</button></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- One model's settings (0.7.0): the settings button on its card. -->
+    <section class="panel" id="modelSheet" hidden>
+      <div class="panel-head" data-tauri-drag-region>
+        <button class="icon-btn" id="modelSheetBack" aria-label="Back">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 3 5 8l5 5"/></svg>
+        </button>
+        <div class="panel-title" id="modelSheetTitle" data-tauri-drag-region></div>
+      </div>
+      <div class="about">
+        <h2>Think first</h2>
+        <div class="seg" id="mpThink" role="group" aria-label="Think first">
+          <button data-v="on">On</button><button data-v="off">Off</button>
+        </div>
+        <p class="fine left" id="mpThinkHint">The model reasons before it answers: a few seconds more, usually better and shorter answers.</p>
+        <h2>Answers</h2>
+        <div class="seg" id="mpLength" role="group" aria-label="Answer length">
+          <button data-v="short">Short</button><button data-v="normal">Normal</button><button data-v="long">Long</button>
+        </div>
+        <h2>Style</h2>
+        <div class="seg" id="mpTemp" role="group" aria-label="Style"></div>
+        <p class="fine left" id="mpTempHint"></p>
+        <h2>Files</h2>
+        <div class="btn-row" id="mpFiles"></div>
+        <p class="fine left" id="mpInfo"></p>
+      </div>
+    </section>
+
+    <section class="panel" id="about" hidden>
+      <div class="panel-head" data-tauri-drag-region>
+        <button class="icon-btn" id="aboutBack" aria-label="Back">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 3 5 8l5 5"/></svg>
+        </button>
+        <div class="panel-title" data-tauri-drag-region>Status</div>
+      </div>
+      <div class="about">
+        <dl class="kv" id="kv"></dl>
+        <h2>Updates</h2>
+        <div class="row-input"><button class="small-btn" id="updateCheck">Check for updates</button><button class="small-btn" id="updateNow" hidden>Restart to update</button></div>
+        <p class="fine own-note" id="updateNote"></p>
+        <h2>Appearance</h2>
+        <div class="seg" id="themeSeg" role="group" aria-label="Theme">
+          <button data-t="system">System</button><button data-t="dark">Dark</button><button data-t="light">Light</button>
+        </div>
+        <h2>Face</h2>
+        <div class="seg" id="faceSeg" role="group" aria-label="The face in the chat">
+          <button data-f="random">Random</button><button data-f="swarm">Swarm</button><button data-f="glyphs">Glyphs</button><button data-f="chip">Chip</button>
+        </div>
+        <h2>Chats</h2>
+        <div class="seg" id="chatsSeg" role="group" aria-label="Keep chats">
+          <button data-k="on">Keep on this Mac</button><button data-k="off">Don't keep</button>
+        </div>
+        <p class="fine own-note" id="chatsNote"></p>
+        <h2>Graphics card</h2>
+        <div class="seg" id="gpuSeg" role="group" aria-label="Graphics card">
+          <button data-gpu="on">Use it for chat</button><button data-gpu="off">Leave it free</button>
+        </div>
+        <p class="fine own-note" id="gpuNote"></p>
+        <h2>Start with this Mac</h2>
+        <div class="seg" id="loginSeg" role="group" aria-label="Start AInode with this Mac">
+          <button data-login="on">Start with this Mac</button><button data-login="off">Only when I open it</button>
+        </div>
+        <p class="fine own-note" id="loginNote"></p>
+        <h2>AInodes online</h2>
+        <div class="seg" id="countSeg" role="group" aria-label="Count me among the AInodes online">
+          <button data-count="on">Count me</button><button data-count="off">Don't count me</button>
+        </div>
+        <p class="fine own-note" id="countNote"></p>
+        <h2>Your files</h2>
+        <ul class="own-list" id="ownList"></ul>
+        <p class="fine own-note" id="ownNote"></p>
+        <h2>Feedback</h2>
+        <div class="btn-row feedback-row" id="feedbackRow">
+          <button class="tool" data-fb="bug">Report a problem</button><button class="tool" data-fb="idea">Suggest an idea</button><button class="tool" data-fb="model">Ask for a model</button>
+        </div>
+        <label class="check"><input type="checkbox" id="fbModels" /> Add the names of my models</label>
+        <p class="fine own-note">Opens a new issue on GitHub in your browser, filled in with AInode's version, the system and its memory. You read it there before you send it; it needs a free GitHub account. AInode itself sends nothing.</p>
+        <h2>Use a host</h2>
+        <div class="row-input">
+          <input id="peerInput" placeholder="host:29447" spellcheck="false" autocomplete="off" />
+          <button class="small-btn" id="peerAdd">Use</button>
+        </div>
+        <p class="fine" style="text-align:left;margin-bottom:22px">One host at a time: the last one you add. If it stops answering for a minute and a half, AInode moves to the next one it knows. Every piece is still checked.</p>
+        <h2>Learn</h2>
+        <ul class="links">
+          <li><button data-url="https://github.com/btxchain/btx/blob/main/doc/modelnet/README.md">How BTX ModelNet works</button></li>
+          <li><button data-url="https://github.com/btxchain/btx/blob/main/doc/modelnet/model-economy.md">How model creators are funded on BTX</button></li>
+          <li><button data-url="https://easybtx.com/ai">AInode on easybtx.com</button></li>
+        </ul>
+        <p class="honest">AInode only downloads. It never serves, pays or earns. Checked means intact, not safe or correct: read a model's licence.</p>
+      </div>
+    </section>
+
+    <div class="toast" id="toast" role="status" hidden></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,44 @@
+**AInode 0.9.0 for Mac (Apple Silicon), on the BTX model engine v0.34.16. Windows and Linux follow; until then they stay on 0.8.4.**
+
+SHA-256 of each download:
+```
+cd43091dd46eba16ea0b0e70555493fa8ceab801cbf4cdfab14261aee72087f2  AInode-0.9.0.dmg
+9302ec529cafdc9e2164f39527ac786b18c2c308dbca8021bb75856c00889e87  AInode_0.9.0_aarch64.app.tar.gz
+```
+
+**Updating:** on a Mac, AInode 0.8.2 and newer install 0.9.0 by themselves at the first quiet moment. AInode 0.8.0 and 0.8.1 offer it with **Restart** under the status line. Your models and settings stay. Nothing is downloaded again. AInode for Windows and Linux is not offered this version yet and stays as it is.
+
+## A newer engine
+- **AInode now runs upstream BTX's model engine v0.34.16** (before: v0.34.15). Upstream took in fixes for the six engine problems we reported in October (btxchain/btx #228 to #233). AInode drops the one workaround it no longer needs, the bundled OpenSSL program. It keeps two on purpose: it still gives the engine one model host at a time, and it still keeps each model once itself, because the engine still stores a fetched model twice.
+- **Slow lines make progress.** On a line below about 0.5 Mbit/s the old engine threw away pieces that had arrived in full. In our test on an emulated 0.25 Mbit/s line, 20 minutes long, the old engine kept none of the model's pieces; the new one kept 33.6 MB, with no retry. We did not run a slow download to its end.
+- **A slightly smaller app.** The old engine needed a separate OpenSSL program to start, which macOS does not have, so AInode shipped one (6.5 MB). The new engine does that step itself and the program is gone. The engine itself grew, so the Mac app is about 4 MB smaller in all.
+- **Your models open as before.** The new engine reads the old engine's model folder, and the old engine reads it again if you ever go back. A model you already have is not fetched again.
+
+## BTX ModelNet, shown as it is
+- **A small "Powered by BTX ModelNet" chip on the home screen.** It shows what the engine reports and nothing else: grey while the engine is off; "Powered by BTX ModelNet" when it runs; "· 1 host answering" once the engine has asked the network and counted who answered (after you opened the BTX ModelNet view); "Fetching over BTX ModelNet · each piece checked" during a download; "no host answered" in amber when the engine asked and nobody answered. A click opens the BTX ModelNet view. The number is the hosts that answered this AInode, not a count of the whole network, and it is dropped after ten minutes.
+- **On the card of a model you have: "Bytes verified · over BTX ModelNet" and "Copy link".** The link is the model's `btx://` address; whoever opens it gets the same checked files. "Verified" is about the bytes, not about what the model says.
+- **The Network view is now the BTX ModelNet view, and it says only what this AInode can know.** A line at the top says how many hosts the engine asked and how many answered. Then: the models it sees on the network, bounties, and release campaigns. A campaign shows its goal, its state and the block after which funders can take their part back. Where the engine cannot know how much was raised, the view says "Raised: not known here"; it never shows a pledge as money raised. A bounty that someone else published shows its name, text and the signer its record names (the engine does not check that signature, and the view says so); its prize and deadlines are not carried by the network yet. A model's publisher is shown as "name as given", with the key that signed its record: a signature proves the key, not the name. If a refresh fails or comes back empty, the last answer stays, greyed and dated.
+- **"How to fund this" explains, it does not pay.** AInode has no wallet. Funding needs a BTX node with a wallet; the card says what that takes and lets you copy the id and, for a campaign, the first command for a node owner. An id or a command is offered for copying only if every part taken from the network has exactly the form BTX gives it, so nothing a host sends can run in your terminal. That command was taken from upstream's help text for v0.34.16; we did not run it, because it needs a wallet.
+- **Fixed:** a release campaign used to be read from fields the engine does not send, so it would have shown no goal. A bounty could show up twice, and also as a model in the search results. None of this was visible so far, because the network holds no bounty and no campaign yet. [Measured on the Mac with test records; the network itself had 4 models, 0 bounties and 0 campaigns on 2026-11-23.]
+- Opening the view sends the model host one search with no words in it, to learn what is there. Words you type in the search box go to the host as before.
+
+## Good to know
+- **The model host now sees that your AInode is open.** While AInode is open, the new engine contacts the model host every 5 seconds, also when nothing is downloading. Each visit is a short encrypted exchange, about 12 KB down and 8 KB up, roughly 350 MB over a full day. The host sees your computer's IP address during that time, and the same engine identity (a public key made on your computer, not a name) at every visit. It does not see what you chat about or which models you have. In 0.9.0 these visits are of no use to you yet: the engine records nothing from them. The old engine made no such visits. No engine setting switches them off; we reported it upstream (btxchain/btx#946). Details: `SECURITY.md`.
+- **Who else can see your AInode's address.** While a model downloads, the engine asks the model host whether other hosts have the same model, and may fetch pieces from the addresses it is given. That was already so in 0.8.4. Every piece is checked, so another source cannot hand you wrong bytes, but such a host sees your IP address and the engine identity too. New with this engine: for up to 15 minutes after a download it keeps contacting those addresses. Today the model host names no other host, so in our tests every connection went to the model host alone.
+- **Mac: the engine is now built by AInode.** Upstream publishes no Mac file for v0.34.16, so AInode builds the engine from upstream's own source at that version, with the engine's source untouched. The build is scripted, gave the same file in every run on our build Mac, and a manifest inside the app says exactly what went in, including three build settings that differ from upstream's.
+- **Windows and Linux come later.** This release is for the Mac. The Windows and Linux versions are built and tested on a Windows PC next and join this release when they pass.
+- **Linux: the next version needs a newer system.** The new engine uses the system's C++ library and needs the one that comes with GCC 14 or newer. Ubuntu 24.04, Debian 13 and Fedora 40, and anything newer, have it. A system older than these will not run the next Linux version of AInode: the `.deb` will not install there, and the AppImage will say in plain words that the system's C++ library is too old for the engine. AInode 0.8.4 keeps running on such a system.
+- **What the chat models know about BTX is still the v0.34.15 documentation.** The BTX texts bundled for the chat (upstream's README, release notes and model-network docs) were not renewed for this release. The engine is v0.34.16; Status shows that from the engine's own files.
+- AInode still gives its engine one model host at a time. The new engine can use several; that comes later.
+- AInode only downloads. It never serves, pays or earns, and has no wallet.
+- "Checked" means every 4 MiB piece is intact, not that a model is safe or correct.
+- Report a security problem privately through "Report a vulnerability" on the repository, not in a public issue.
+- Bundled in the Mac app: BTX `btx-modeld` v0.34.16 (MIT, built from upstream's source) with OpenSSL 3.5.9 (Apache-2.0), SQLite 3.46.1 (public domain), secp256k1 (MIT), LevelDB (BSD-3-Clause) and libbitcoinpqc (MIT) inside it; llama.cpp b11559 (MIT); pdf.js 6.3.289 (Apache-2.0); Tauri (MIT or Apache-2.0); opening paragraphs of Wikipedia's core articles (CC BY-SA 4.0). The licence texts are in the app, beside the engine.
+
+## Not in this release
+- Telling the engine which chain it is on (`-pwcchain=main`). We tried it and left it out: with it, an idle AInode asks its host for the addresses of other hosts every 5 seconds and contacts them. AInode should only talk to hosts you can see in it.
+- Labelling our host as an index (`addmodelindex`). It waits for its own decision.
+- Sharing models, or paying. Unchanged.
+- In the BTX ModelNet view: a list of index peers you can edit, and a count on the chip before the view was opened once. Both need a decision first.
+
+Feedback: Send feedback in the app, open an issue here, or write in the BTX chat (reach it from @btx_ecosystem).

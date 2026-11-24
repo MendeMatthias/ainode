@@ -1,0 +1,710 @@
+/* AInode. The easyBTX family's language (JetBrains Mono, near-black, BTX green as
+   the shield colour), pushed further: one object on screen, the core, and
+   everything else quiet. Dark is the native mode; light is a full theme, not an
+   inversion. Theme tokens live on :root and are swapped by data-theme. */
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal; font-weight: 400; font-display: swap;
+  src: url("./assets/fonts/JetBrainsMono-Regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal; font-weight: 700; font-display: swap;
+  src: url("./assets/fonts/JetBrainsMono-Bold.woff2") format("woff2");
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* [hidden] must beat every component's own display rule (the easyBTX site lost a
+   round to `display:block` outranking the UA's [hidden]). */
+[hidden] { display: none !important; }
+
+:root {
+  --bg: #000000;
+  --bg-2: #050806;
+  --surface: rgba(255, 255, 255, 0.025);
+  --surface-hi: rgba(255, 255, 255, 0.05);
+  --line: rgba(120, 255, 170, 0.10);
+  --line-hi: rgba(120, 255, 170, 0.22);
+  --text: #e8ece9;
+  --muted: #7b847e;
+  --faint: #4a524c;
+  --accent: #4ade80;
+  --accent-deep: #10b981;
+  --accent-ink: #02140a;
+  --glow: rgba(74, 222, 128, 0.32);
+  --glow-soft: rgba(74, 222, 128, 0.10);
+  --warn: #f5c451;
+  --error: #f87171;
+  --obsidian-1: #121614;
+  --obsidian-2: #050706;
+  --engrave: rgba(160, 255, 200, 0.55);
+
+  --font: "JetBrains Mono", "SF Mono", ui-monospace, monospace;
+  --r: 12px;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+
+  color-scheme: dark;
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+:root[data-theme="light"] {
+  --bg: #f2f3ef;
+  --bg-2: #e9ebe5;
+  --surface: rgba(10, 30, 15, 0.025);
+  --surface-hi: rgba(10, 30, 15, 0.05);
+  --line: rgba(10, 70, 35, 0.12);
+  --line-hi: rgba(10, 70, 35, 0.24);
+  --text: #0c110e;
+  --muted: #5a635d;
+  --faint: #9aa29c;
+  --accent: #128a45;
+  --accent-deep: #0b6b34;
+  --accent-ink: #f2fbf5;
+  --glow: rgba(18, 138, 69, 0.22);
+  --glow-soft: rgba(18, 138, 69, 0.07);
+  --warn: #a06800;
+  --error: #c02626;
+  --obsidian-1: #fbfcfa;
+  --obsidian-2: #e4e7e1;
+  --engrave: rgba(11, 107, 52, 0.75);
+  color-scheme: light;
+}
+
+html, body { height: 100%; }
+body {
+  overflow: hidden;
+  user-select: none;
+  cursor: default;
+  background:
+    radial-gradient(60% 38% at 50% 27%, var(--glow-soft), transparent 70%),
+    linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+  transition: background 400ms var(--ease);
+}
+
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visible {
+  outline: 1px solid var(--accent); outline-offset: 3px; border-radius: 6px;
+}
+a { color: var(--accent); text-decoration: none; }
+
+/* A field of faint grid lines, like an engraved plate. Static: costs nothing. */
+.plate {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(70% 55% at 50% 28%, #000 0%, transparent 75%);
+  opacity: .45;
+}
+
+/* ── Title bar (macOS overlay style: traffic lights sit at the top left) ─── */
+.bar {
+  position: relative; z-index: 2;
+  height: 52px; padding: 0 16px 0 84px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+/* Windows and Linux draw a full, light scrollbar where macOS overlays a thin one: thin, in the theme's line colour. */
+:root[data-os="linux"], :root[data-os="windows"] { scrollbar-color: var(--line-hi) transparent; }
+:root[data-os="linux"] *, :root[data-os="windows"] * { scrollbar-width: thin; }
+/* Linux and Windows draw their own title bar above the page: no traffic lights to clear. */
+:root[data-os="linux"] .bar, :root[data-os="windows"] .bar { padding-left: 22px; }
+.mark { font-weight: 700; letter-spacing: .32em; font-size: 12px; color: var(--text); }
+.mark b { color: var(--accent); font-weight: 700; }
+.bar-actions { display: flex; gap: 4px; }
+/* Under the two icons, where Mende asked for it: proof the app keeps updating. */
+.ver { position: absolute; right: 22px; top: 44px; font-size: 10px; letter-spacing: .06em; color: var(--accent); opacity: .85; pointer-events: none; }
+.icon-btn {
+  width: 30px; height: 30px; border-radius: 8px;
+  display: grid; place-items: center; color: var(--muted);
+  transition: color 160ms, background 160ms;
+}
+.icon-btn:hover { color: var(--text); background: var(--surface-hi); }
+.icon-btn svg { width: 16px; height: 16px; }
+
+/* ── Home ────────────────────────────────────────────────────────────────── */
+main {
+  position: relative; z-index: 1;
+  height: calc(100% - 52px);
+  display: flex; flex-direction: column;
+  padding: 0 22px 16px;
+}
+
+.hero { display: flex; flex-direction: column; align-items: center; padding: 6px 0 18px; }
+
+/* The core. One button, the whole product. */
+.core {
+  position: relative; width: 212px; height: 212px; border-radius: 50%;
+  display: grid; place-items: center;
+  transition: transform 400ms var(--ease), filter 600ms var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+.core:active { transform: scale(.975); }
+.core svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.core .disc {
+  position: absolute; inset: 34px; border-radius: 50%;
+  background:
+    radial-gradient(120% 120% at 30% 25%, var(--obsidian-1) 0%, var(--obsidian-2) 60%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.06),
+    inset 0 -18px 30px rgba(0,0,0,.45),
+    0 18px 40px rgba(0,0,0,.55),
+    0 0 0 1px var(--line);
+  transition: box-shadow 600ms var(--ease);
+}
+:root[data-theme="light"] .core .disc {
+  box-shadow: inset 0 1px 0 #fff, inset 0 -14px 26px rgba(0,0,0,.06), 0 14px 30px rgba(10,40,20,.14), 0 0 0 1px var(--line);
+}
+.core-label {
+  position: relative; z-index: 1;
+  font-weight: 700; font-size: 13px; letter-spacing: .38em; padding-left: .38em;
+  color: var(--engrave);
+  text-shadow: 0 0 18px var(--glow);
+}
+.core-sub {
+  position: absolute; z-index: 1; bottom: 66px; left: 0; right: 0; text-align: center;
+  font-size: 10px; letter-spacing: .2em; color: var(--faint); text-transform: uppercase;
+}
+
+.ring { fill: none; stroke: var(--line-hi); stroke-width: 1; }
+.ring.dash { stroke-dasharray: 2 7; stroke: var(--line-hi); transform-origin: 50% 50%; }
+.ring.track { stroke: var(--line); stroke-width: 2; }
+.ring.arc {
+  stroke: var(--accent); stroke-width: 2; stroke-linecap: round;
+  transform: rotate(-90deg); transform-origin: 50% 50%;
+  transition: stroke-dashoffset 900ms var(--ease), opacity 400ms;
+  filter: drop-shadow(0 0 6px var(--glow));
+}
+.ring.ticks { stroke: var(--faint); stroke-width: 6; stroke-dasharray: 1 13.4; opacity: .5; }
+
+.core[data-state="running"] .disc {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.07),
+    inset 0 -18px 30px rgba(0,0,0,.45),
+    0 0 60px var(--glow),
+    0 0 0 1px var(--line-hi);
+}
+.core[data-state="running"] .ring.dash { animation: spin 28s linear infinite; stroke: var(--accent); opacity: .55; }
+.core[data-state="running"] .core-label { color: var(--accent); }
+.core[data-state="starting"] .ring.dash { animation: spin 2.4s linear infinite; stroke: var(--accent); }
+.core[data-state="starting"] .core-label { animation: breathe 1.4s ease-in-out infinite; }
+.core[data-state="error"] .core-label { color: var(--error); text-shadow: none; }
+/* STOP is a hover reveal on a running core only; in every other state it must not
+   render (an earlier rule hid it only while running, so "STARTING" read "STARTINGSTOP"). */
+.core-label .off { display: none; }
+.core[data-state="running"]:hover .core-label .on { display: none; }
+.core[data-state="running"]:hover .core-label .off { display: inline; color: var(--text); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+/* Linux: WebKitGTK draws without the graphics card here, so a smoothly turning
+   ring is repainted 60 times a second: 4 processor cores for the window,
+   measured 2026-10-16 (2 on the PC that runs a BTX signer, for 11 hours).
+   Turning in 4 steps a second it costs 0.37 cores and still turns once in
+   28 s. WebView2 and WKWebView turn it on the graphics card: unchanged. */
+html[data-os="linux"] .core[data-state="running"] .ring.dash { animation-timing-function: steps(112); }
+/* While AInode is hidden, and on Linux also while another window has the
+   focus, nothing animates (main.ts sets data-away): an open window nobody
+   looks at costs nothing. */
+html[data-away] *, html[data-away] *::before, html[data-away] *::after { animation-play-state: paused !important; }
+@keyframes breathe { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) {
+  .core * { animation: none !important; }
+}
+
+.status {
+  margin-top: 14px; min-height: 22px; max-width: 360px;
+  display: flex; align-items: flex-start; gap: 8px;
+  font-size: 12px; color: var(--muted); text-align: center;
+}
+.status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--faint); flex: none; margin-top: 7px; }
+.status[data-tone="ok"] .dot { background: var(--accent); box-shadow: 0 0 10px var(--glow); }
+.status[data-tone="busy"] .dot { background: var(--accent); animation: breathe 1.2s infinite; }
+.status[data-tone="warn"] .dot { background: var(--warn); }
+.status[data-tone="error"] .dot { background: var(--error); }
+.status[data-tone="error"] { color: var(--error); }
+/* The BTX nodes on the home line open easybtx.com/nodes. */
+.statusLink { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.statusLink:hover, .statusLink:focus-visible { color: var(--accent); }
+
+/* ── Models ──────────────────────────────────────────────────────────────── */
+.section-label {
+  font-size: 10px; letter-spacing: .24em; text-transform: uppercase; color: var(--faint);
+  margin: 4px 2px 8px; display: flex; justify-content: space-between;
+}
+.models { flex: 1; overflow-y: auto; margin: 0 -4px; padding: 0 4px; scrollbar-width: none; }
+.models::-webkit-scrollbar { display: none; }
+
+.model {
+  display: grid; grid-template-columns: 1fr auto; gap: 4px 14px; align-items: center;
+  padding: 14px 14px; border-radius: var(--r);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  margin-bottom: 8px;
+  transition: border-color 200ms, background 200ms;
+}
+.model:hover { border-color: var(--line-hi); background: var(--surface-hi); }
+.model-name { font-weight: 700; font-size: 14px; letter-spacing: .01em; }
+.model-meta { grid-column: 1; font-size: 11px; color: var(--muted); }
+.model-progress { grid-column: 1 / -1; font-size: 11px; color: var(--accent); font-variant-numeric: tabular-nums; }
+.model-progress.waiting { color: var(--warn); }
+.model-error { grid-column: 1 / -1; font-size: 11px; color: var(--error); line-height: 1.5; }
+.model-sum { grid-column: 1 / -1; font-size: 12px; color: var(--muted); line-height: 1.5; }
+/* Card actions as real buttons (0.7.0: the faint text links were hard to read). */
+.btn-row { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.tool {
+  height: 28px; padding: 0 11px; border-radius: 8px; border: 1px solid var(--line-hi);
+  font-size: 11.5px; font-weight: 600; color: var(--text); background: var(--surface);
+  display: inline-flex; align-items: center; gap: 6px; transition: border-color 150ms, color 150ms, background 150ms;
+}
+.tool svg { width: 13px; height: 13px; }
+.tool:hover { border-color: var(--accent); color: var(--accent); }
+.tool.danger { color: var(--error); }
+.tool.danger:hover { border-color: var(--error); color: var(--error); }
+.label-actions { display: flex; gap: 6px; }
+.section-label { align-items: center; }
+.section-label i { font-style: normal; letter-spacing: .1em; text-transform: none; }
+.pill-btn {
+  height: 24px; padding: 0 11px; border-radius: 999px; border: 1px solid var(--line-hi);
+  font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); font-weight: 600;
+}
+.pill-btn:hover { color: var(--text); border-color: var(--text); }
+.pill-btn.accent { color: var(--accent); border-color: var(--accent); }
+.pill-btn.accent:hover { box-shadow: 0 0 16px var(--glow-soft); }
+.empty-card {
+  border: 1px dashed var(--line-hi); border-radius: var(--r); padding: 22px 16px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 12px; color: var(--muted); font-size: 13px;
+}
+.primary.small { margin-top: 0; width: auto; height: 38px; padding: 0 22px; font-size: 11px; letter-spacing: .2em; }
+.head-btn { font-size: 11px; font-weight: 600; color: var(--muted); padding: 4px 9px; border-radius: 7px; border: 1px solid var(--line); }
+.head-btn:hover { color: var(--text); border-color: var(--line-hi); }
+.head-btn[data-armed="1"] { color: var(--error); border-color: var(--error); }
+.store-lede { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 14px; }
+.store-list { overflow: visible; margin-bottom: 14px; }
+.facts { grid-column: 1 / -1; display: flex; gap: 16px; font-size: 11px; color: var(--muted); margin-top: 4px; }
+.facts b { color: var(--text); font-weight: 700; }
+.good-at { grid-column: 1 / -1; font-size: 12px; color: var(--accent); }
+.inline-link { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: var(--line-hi); }
+.inline-link:hover { color: var(--accent); }
+.fine.left { text-align: left; max-width: none; margin: -14px 0 20px; }
+#mpInfo { margin: 6px 0 0; word-break: break-all; }
+
+.act {
+  grid-row: 1 / span 2; grid-column: 2;
+  min-width: 78px; height: 34px; padding: 0 14px; border-radius: 999px;
+  font-size: 12px; font-weight: 700; letter-spacing: .08em;
+  border: 1px solid var(--line-hi); color: var(--accent);
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  transition: background 160ms, color 160ms, border-color 160ms, box-shadow 200ms;
+}
+.act:hover { border-color: var(--accent); box-shadow: 0 0 20px var(--glow-soft); }
+.act[data-kind="chat"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.act[data-kind="chat"]:hover { box-shadow: 0 0 24px var(--glow); }
+.act[data-kind="blocked"] { color: var(--faint); border-color: var(--line); cursor: default; box-shadow: none; }
+.act[data-kind="progress"] { color: var(--text); font-variant-numeric: tabular-nums; }
+.act .mini { width: 14px; height: 14px; }
+.act .mini circle { fill: none; stroke-width: 2.4; }
+.act .mini .bg { stroke: var(--line-hi); }
+.act .mini .fg { stroke: var(--accent); stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; }
+.act-wrap { grid-row: 1 / span 2; grid-column: 2; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.act-hint { font-size: 10px; color: var(--faint); text-align: center; white-space: nowrap; }
+
+.empty-note {
+  font-size: 12px; color: var(--muted); border: 1px dashed var(--line-hi); border-radius: var(--r);
+  padding: 12px 14px; margin-bottom: 10px; line-height: 1.6;
+}
+
+/* Send feedback (Status) */
+.feedback-row { flex-wrap: wrap; margin-bottom: 10px; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin-bottom: 6px; cursor: pointer; }
+.check input { accent-color: var(--accent); }
+.icon-btn.small svg { width: 15px; height: 15px; }
+
+/* A newer AInode (update.rs): quiet, under the status line, never over a chat. */
+.update-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font-size: 12px; color: var(--muted); border: 1px solid var(--line-hi); border-radius: var(--r);
+  padding: 8px 10px 8px 14px; margin: -6px 0 14px;
+}
+.update-acts { display: flex; align-items: center; gap: 10px; flex: none; }
+.update-bar .small-btn { height: 28px; }
+/* Mende, 2026-10-18: while an update waits, Restart calls for attention with a
+   green light running around its frame. A conic gradient turns behind the
+   button and the button's own face covers all but a 1.5 px rim. It pauses with
+   everything else while AInode is hidden or minimized, and is a steady green
+   frame with "reduce motion" and on Linux: WebKitGTK repaints without the
+   graphics card, and even in steps the light cost 1.4 processor cores there
+   (measured for 0.8.2: 1.60 cores with it, 0.22 with the ring alone). */
+#updateGo { position: relative; overflow: hidden; isolation: isolate; border-color: transparent; animation: call 2.4s ease-in-out infinite; }
+#updateGo::before { content: ""; position: absolute; inset: -150% -25%; z-index: -2;
+  background: conic-gradient(from 0deg, var(--line-hi) 0 58%, var(--accent-deep) 76%, var(--accent) 88%, var(--line-hi) 100%);
+  animation: run-light 2.4s linear infinite; }
+#updateGo::after { content: ""; position: absolute; inset: 1.5px; z-index: -1; border-radius: 6.5px; background: var(--bg); }
+#updateGo:disabled { animation: none; box-shadow: none; }
+#updateGo:disabled::before { animation: none; opacity: .35; }
+html[data-os="linux"] #updateGo { animation: none; box-shadow: 0 0 12px var(--glow); }
+html[data-os="linux"] #updateGo::before { animation: none; background: var(--accent); }
+html[data-os="linux"] #updateGo:disabled { box-shadow: none; }
+@keyframes run-light { to { transform: rotate(1turn); } }
+@keyframes call { 0%, 100% { box-shadow: 0 0 6px var(--glow-soft); } 50% { box-shadow: 0 0 16px var(--glow); } }
+@media (prefers-reduced-motion: reduce) {
+  #updateGo { animation: none; box-shadow: 0 0 12px var(--glow); }
+  #updateGo::before { animation: none; background: var(--accent); }
+}
+
+.foot {
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px 12px;
+  padding-top: 10px; font-size: 11px; color: var(--faint);
+}
+/* The ModelNet chip (chip.ts): it shows what the engine reported. A click opens
+   the BTX ModelNet view. Steady on Linux; paused with everything else while the
+   window is hidden (html[data-away]). */
+.net-chip {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 7px; max-width: 100%;
+  min-height: 26px; padding: 3px 11px 3px 9px; border-radius: 999px; border: 1px solid var(--line-hi);
+  background: var(--surface); color: var(--muted); font-size: 11px; line-height: 1.35; text-align: left;
+  transition: border-color 200ms var(--ease), box-shadow 200ms var(--ease);
+}
+.net-chip b { font-weight: 700; }
+.net-chip .net-chip-detail { color: var(--muted); }
+.net-mark { width: 13px; height: 13px; flex: none; }
+.net-chip[data-tone="on"], .net-chip[data-tone="busy"] {
+  color: var(--text); background: var(--glow-soft);
+  border-color: var(--line-hi); border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+}
+.net-chip[data-tone="on"] b, .net-chip[data-tone="busy"] b, .net-chip[data-tone="on"] .net-mark, .net-chip[data-tone="busy"] .net-mark { color: var(--accent); }
+.net-chip[data-tone="busy"] .net-mark { animation: breathe 1.6s infinite; }
+html[data-os="linux"] .net-chip[data-tone="busy"] .net-mark { animation: none; }
+.net-chip[data-tone="warn"] { color: var(--text); border-color: var(--warn); border-color: color-mix(in srgb, var(--warn) 55%, transparent); }
+.net-chip[data-tone="warn"] .net-mark, .net-chip[data-tone="warn"] .net-chip-detail { color: var(--warn); }
+.net-chip:hover { box-shadow: 0 0 16px var(--glow-soft); }
+.net-chip[data-tone="off"]:hover { border-color: var(--text); box-shadow: none; }
+/* On the card of a model that is on this computer: how it came, and its link to pass on. */
+.model-net {
+  grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 11px; color: var(--accent);
+}
+.model-net > span { display: inline-flex; align-items: center; gap: 6px; }
+.meter { display: flex; align-items: center; gap: 10px; }
+.meter .bar-track { width: 90px; height: 3px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.meter .bar-fill { height: 100%; width: 0; background: var(--accent); transition: width 700ms var(--ease); }
+.link-btn { font-size: 11px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-hi); }
+.link-btn:hover { color: var(--accent); }
+
+/* ── Sheets and panels ───────────────────────────────────────────────────── */
+.sheet, .panel {
+  position: fixed; inset: 0; z-index: 10;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  animation: rise 360ms var(--ease);
+}
+/* Motion only, never opacity: an animation can stall at its first frame (WebKit
+   does this for a window that is not on screen yet), and an opacity-0 start
+   would then hide the first-run consent screen itself. */
+@keyframes rise { from { transform: translateY(10px); } }
+
+.sheet-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: safe center; padding: 20px 30px 34px; text-align: center; overflow-y: auto; }
+.sheet h1 { font-size: 22px; letter-spacing: .32em; font-weight: 700; margin: 26px 0 14px; padding-left: .32em; }
+.sheet h1 b { color: var(--accent); }
+.sheet .lede { color: var(--muted); font-size: 13px; max-width: 330px; }
+.choices { display: flex; gap: 8px; margin: 26px 0 10px; flex-wrap: wrap; justify-content: center; }
+.choice {
+  min-width: 70px; height: 40px; border-radius: 10px; border: 1px solid var(--line-hi);
+  font-weight: 700; font-size: 13px; color: var(--muted);
+  transition: all 160ms;
+}
+.choice[aria-pressed="true"] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); box-shadow: 0 0 24px var(--glow); }
+.choice { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-width: 92px; height: 54px; }
+.choice span { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; opacity: .8; }
+.choice:disabled { opacity: .3; cursor: default; }
+.where { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 18px 0 -12px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.where code { font-size: 11px; color: var(--text); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.places { margin: 22px 0 -6px; }
+.places .choice { min-width: 118px; height: auto; padding: 8px 10px; }
+.places .choice b { font-size: 12px; }
+.custom-size { display: flex; align-items: center; gap: 8px; margin: 4px 0 12px; font-size: 12px; color: var(--muted); }
+.custom-size input {
+  width: 78px; height: 34px; border-radius: 8px; border: 1px solid var(--line-hi); background: var(--surface);
+  color: var(--text); font: inherit; font-size: 13px; text-align: center;
+}
+.custom-size input:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow); }
+.fine.warn { color: var(--warn, #f5a524); }
+.link-btn.cancel { margin-top: 14px; font-size: 12px; }
+.fine { font-size: 11px; color: var(--faint); max-width: 330px; line-height: 1.6; }
+.primary {
+  margin-top: 26px; width: 100%; max-width: 300px; height: 48px; border-radius: 12px;
+  background: var(--accent); color: var(--accent-ink); font-weight: 700; letter-spacing: .3em; padding-left: .3em;
+  box-shadow: 0 0 34px var(--glow);
+  transition: transform 160ms var(--ease), box-shadow 200ms;
+}
+.primary:hover { box-shadow: 0 0 46px var(--glow); }
+.primary:active { transform: scale(.98); }
+.primary:disabled { opacity: .4; box-shadow: none; cursor: default; }
+.mini-core { width: 92px; height: 92px; position: relative; }
+.mini-core .disc { position: absolute; inset: 14px; border-radius: 50%; background: radial-gradient(120% 120% at 30% 25%, var(--obsidian-1), var(--obsidian-2) 60%); box-shadow: 0 0 40px var(--glow), 0 0 0 1px var(--line-hi); }
+.mini-core svg { position: absolute; inset: 0; }
+
+.panel-head {
+  height: 52px; padding: 0 12px 0 84px; display: flex; align-items: center; gap: 10px;
+  border-bottom: 1px solid var(--line);
+}
+:root[data-os="linux"] .panel-head, :root[data-os="windows"] .panel-head { padding-left: 12px; }
+.panel-title { font-weight: 700; font-size: 13px; flex: 1; }
+.badge {
+  font-size: 9px; letter-spacing: .18em; text-transform: uppercase; color: var(--accent);
+  border: 1px solid var(--line-hi); padding: 2px 7px; border-radius: 999px;
+}
+
+/* About / status */
+.about { flex: 1; overflow-y: auto; padding: 18px 22px 26px; }
+.kv { display: grid; grid-template-columns: 112px 1fr; gap: 9px 12px; font-size: 12px; margin-bottom: 22px; }
+.kv dt { color: var(--faint); }
+.kv dd { color: var(--text); word-break: break-word; }
+.about h2 { font-size: 10px; letter-spacing: .24em; text-transform: uppercase; color: var(--faint); margin: 4px 0 10px; font-weight: 400; }
+.seg { display: inline-flex; border: 1px solid var(--line-hi); border-radius: 9px; overflow: hidden; margin-bottom: 22px; }
+.seg button { padding: 7px 14px; font-size: 12px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--surface-hi); color: var(--accent); }
+.links { list-style: none; display: grid; gap: 10px; margin-bottom: 22px; font-size: 12px; }
+.links button { color: var(--accent); text-align: left; }
+.links button:hover { text-decoration: underline; }
+.honest { font-size: 11px; color: var(--muted); border-left: 2px solid var(--line-hi); padding-left: 12px; line-height: 1.7; margin-bottom: 22px; }
+.row-input { display: flex; gap: 8px; margin-bottom: 8px; }
+.row-input input {
+  flex: 1; height: 34px; border-radius: 8px; border: 1px solid var(--line-hi); background: var(--surface);
+  color: var(--text); font: inherit; font-size: 12px; padding: 0 10px; user-select: text;
+}
+.small-btn { height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line-hi); color: var(--accent); font-size: 12px; }
+
+/* Chat */
+.thread { position: relative; flex: 1; overflow-y: auto; padding: 18px 18px 8px; display: flex; flex-direction: column; gap: 14px; user-select: text; }
+.msg { max-width: 92%; font-size: 13px; line-height: 1.65; white-space: pre-wrap; word-wrap: break-word; }
+.msg.user { align-self: flex-end; background: var(--surface-hi); border: 1px solid var(--line); padding: 9px 13px; border-radius: 14px 14px 4px 14px; }
+.msg.bot { align-self: flex-start; color: var(--text); }
+.msg.bot strong { font-weight: 700; }
+.msg.bot table { border-collapse: collapse; margin: 6px 0; font-size: 12px; white-space: normal; }
+.msg.bot th, .msg.bot td { border: 1px solid var(--line-hi); padding: 4px 8px; text-align: left; vertical-align: top; }
+.msg.bot th { color: var(--accent); font-weight: 700; background: var(--surface-hi); }
+.msg.bot .loop-note { margin-top: 8px; font-size: 11px; color: var(--warn); }
+.msg.bot code { font-size: 12px; background: var(--surface-hi); border: 1px solid var(--line); border-radius: 5px; padding: 0 4px; }
+.msg.bot pre { margin: 6px 0; padding: 9px 11px; font-size: 12px; white-space: pre; overflow-x: auto; background: var(--surface-hi); border: 1px solid var(--line); border-radius: 8px; }
+.msg.bot .think { font-size: 11px; color: var(--faint); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.msg.bot .think .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); animation: breathe 1s infinite; }
+.msg.bot .cursor { display: inline-block; width: 7px; height: 14px; background: var(--accent); vertical-align: -2px; margin-left: 2px; animation: breathe .9s infinite; }
+.msg.sys { align-self: center; font-size: 11px; color: var(--muted); text-align: center; }
+.composer { padding: 10px 14px 14px; border-top: 1px solid var(--line); }
+.composer-row { display: flex; gap: 8px; align-items: flex-end; }
+.think-toggle {
+  position: relative; overflow: hidden;
+  height: 42px; padding: 0 12px; border-radius: 12px; flex: none;
+  display: flex; align-items: center; gap: 6px;
+  border: 1px solid var(--line-hi); color: var(--faint); font-size: 10px; font-weight: 700;
+  letter-spacing: .16em; text-transform: uppercase;
+  transition: color 150ms, border-color 150ms, background 150ms, box-shadow 150ms;
+}
+.think-toggle svg { width: 13px; height: 13px; transition: transform 400ms var(--ease); }
+.think-toggle[aria-pressed="true"] {
+  color: var(--accent); border-color: var(--accent); background: var(--glow-soft);
+  box-shadow: 0 0 18px var(--glow), inset 0 0 10px var(--glow-soft);
+}
+.think-toggle[aria-pressed="true"] svg { transform: rotate(45deg); animation: breathe 2.4s infinite; }
+/* A slow light sweep across the switch while it is on. */
+.think-toggle[aria-pressed="true"]::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, rgba(160, 255, 200, .18) 50%, transparent 70%);
+  transform: translateX(-100%); animation: sweep 3.2s ease-in-out infinite;
+}
+@keyframes sweep { 60%, 100% { transform: translateX(100%); } }
+
+/* Thinking line (a lattice, fx.ts), the "consulted" chip and the decode band (chat.ts). */
+.msg.bot .think .glyphs { color: var(--accent); opacity: .55; letter-spacing: .12em; font-size: 10px; }
+.msg.bot .consulted {
+  display: block; width: fit-content; margin-bottom: 7px; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--line-hi); color: var(--muted); font-size: 10px; letter-spacing: .04em;
+}
+.msg.bot .decode { color: var(--accent); text-shadow: 1px 0 rgba(255, 60, 120, .35), -1px 0 rgba(60, 200, 255, .35); }
+.msg.bot .decode.hot { color: var(--text); text-shadow: 0 0 8px var(--glow); }
+/* Each reply arrives with a short glitch, once. */
+.msg.bot { animation: glitch-in 280ms steps(3, end) 1; }
+@keyframes glitch-in {
+  0% { clip-path: inset(0 0 72% 0); transform: translateX(-3px); text-shadow: 2px 0 rgba(255, 60, 120, .5), -2px 0 rgba(60, 200, 255, .5); }
+  50% { clip-path: inset(40% 0 20% 0); transform: translateX(2px); }
+  100% { clip-path: inset(0); transform: none; text-shadow: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .msg.bot, .think-toggle[aria-pressed="true"] svg, .think-toggle[aria-pressed="true"]::after { animation: none; }
+}
+.composer textarea {
+  flex: 1; resize: none; min-height: 42px; max-height: 140px; padding: 11px 12px;
+  border-radius: 12px; border: 1px solid var(--line-hi); background: var(--surface);
+  color: var(--text); font: inherit; font-size: 13px; line-height: 1.45; user-select: text;
+}
+/* Text fields show focus with their own border; the generic outline would draw a second ring. */
+.composer textarea:focus-visible, .row-input input:focus-visible {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow-soft);
+}
+.send {
+  width: 42px; height: 42px; border-radius: 12px; background: var(--accent); color: var(--accent-ink);
+  display: grid; place-items: center; flex: none;
+}
+.send:disabled { opacity: .35; }
+.send svg { width: 16px; height: 16px; }
+.composer .fine { margin-top: 8px; text-align: center; max-width: none; }
+
+/* Toast */
+.toast {
+  position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 30;
+  max-width: 86%; padding: 10px 14px; border-radius: 10px; font-size: 12px;
+  background: var(--obsidian-1); color: var(--text); border: 1px solid var(--line-hi);
+  box-shadow: 0 10px 30px rgba(0,0,0,.4);
+  animation: rise 260ms var(--ease);
+}
+.toast[data-tone="error"] { border-color: var(--error); }
+
+/* ── The loading scene (scene.ts, fx.ts) ─────────────────────────────────── */
+.scene { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.fx-field, .fx-stage { position: absolute; inset: 0; display: block; }
+.fx-stage { filter: drop-shadow(0 0 6px var(--glow)); }
+/* The chosen face (a short loop, or its still): placed by scene.ts on the box
+   the strands use, black blended away, edges feathered into the field. */
+.scene-face-media {
+  position: absolute; display: block; object-fit: cover; pointer-events: none;
+  opacity: 0; transition: opacity 1200ms var(--ease);
+  mix-blend-mode: screen;
+  -webkit-mask-image: radial-gradient(70% 62% at 50% 48%, #000 55%, transparent 100%);
+  mask-image: radial-gradient(70% 62% at 50% 48%, #000 55%, transparent 100%);
+}
+:root[data-theme="light"] .scene-face-media { mix-blend-mode: multiply; filter: invert(1) hue-rotate(180deg); }
+.scene[data-phase="ready"] .scene-face-media { opacity: 1; }
+/* Scanlines and a vignette over the field: a display, not a page. */
+.fx-scan {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(80% 70% at 50% 45%, transparent 55%, rgba(0, 0, 0, .55) 100%),
+    repeating-linear-gradient(180deg, transparent 0 2px, rgba(0, 0, 0, .22) 2px 3px);
+}
+:root[data-theme="light"] .fx-scan { background: repeating-linear-gradient(180deg, transparent 0 2px, rgba(0, 0, 0, .06) 2px 3px); }
+.scene-face { position: absolute; left: 50%; top: 42%; width: 52%; max-width: 300px; transform: translate(-50%, -50%); color: var(--accent); }
+.scene-text {
+  position: absolute; left: 18px; right: 18px; bottom: 7%; text-align: center; pointer-events: auto;
+  /* A dark halo keeps the words readable over the field. */
+  background: radial-gradient(60% 100% at 50% 50%, var(--bg) 30%, transparent 100%);
+  padding: 14px 0;
+}
+.scene-title {
+  font-size: 12px; font-weight: 700; letter-spacing: .3em; padding-left: .3em; color: var(--accent);
+  text-shadow: 0 0 14px var(--glow); white-space: pre-wrap;
+}
+.scene-sub { margin-top: 9px; min-height: 18px; display: flex; justify-content: center; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); }
+.scene[data-phase="ready"] .scene-sub { color: var(--text); opacity: .9; }
+.scene[data-phase="fail"] .scene-title { color: var(--error); text-shadow: none; }
+.scene[data-phase="fail"] .scene-sub { color: var(--text); }
+.scene-line { line-height: 1.6; max-width: 320px; }
+
+/* ── Lattice loader: cells that brighten in a wave, a label, a timer ─────── */
+.lattice {
+  --ll-n: 3; --ll-cell: 5px; --ll-gap: 2px; --ll-idle: .18; --ll-peak: 1; --ll-cycle: 864ms;
+  position: relative; display: inline-flex; align-items: center; gap: 8px; font-size: 11px; line-height: 1; color: var(--faint);
+}
+.lattice-grid { display: grid; grid-template-columns: repeat(var(--ll-n), var(--ll-cell)); gap: var(--ll-gap); flex: none; }
+.lattice-cell {
+  width: var(--ll-cell); height: var(--ll-cell); border-radius: 50%; background: var(--accent); opacity: var(--ll-idle);
+  box-shadow: 0 0 6px var(--glow);
+  animation: lattice-on var(--ll-cycle) cubic-bezier(.77, 0, .175, 1) infinite;
+}
+.lattice-cell[data-hole] { animation: none; opacity: calc(var(--ll-idle) * .4); box-shadow: none; }
+.lattice[data-status="done"] .lattice-cell { animation: none; opacity: var(--ll-peak); }
+.lattice-label { color: var(--muted); }
+.lattice-timer { font-variant-numeric: tabular-nums; opacity: .7; }
+@keyframes lattice-on {
+  0%, 100% { opacity: var(--ll-idle); }
+  18%, 42% { opacity: var(--ll-peak); }
+  62% { opacity: var(--ll-idle); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lattice-cell { animation-delay: 0ms !important; animation-duration: 1400ms !important; --ll-peak: .7; }
+}
+
+/* Your own files (0.7.0): the + button, the drop veil, the notes in the thread. */
+.attach {
+  flex: none; width: 42px; height: 42px; border-radius: 12px; border: 1px solid var(--line-hi);
+  color: var(--muted); display: inline-flex; align-items: center; justify-content: center;
+}
+.attach:hover { color: var(--accent); border-color: var(--accent); }
+.attach svg { width: 15px; height: 15px; }
+.drop-veil {
+  position: absolute; inset: 52px 0 0; z-index: 5; display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, .72); border: 2px dashed var(--accent); border-radius: 14px; margin: 8px; pointer-events: none;
+}
+.drop-veil div { display: flex; flex-direction: column; gap: 6px; text-align: center; color: var(--muted); font-size: 12px; }
+.drop-veil b { color: var(--accent); font-size: 15px; letter-spacing: .08em; }
+.msg.sys { max-width: 86%; line-height: 1.6; }
+.msg.sys.ok { color: var(--accent); }
+.msg.sys.bad { color: var(--error); }
+.own-list { list-style: none; display: grid; gap: 8px; margin-bottom: 8px; }
+.own-list li { display: flex; align-items: center; gap: 10px; font-size: 12px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.own-list .own-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.own-list .own-meta { color: var(--faint); font-size: 11px; white-space: nowrap; }
+.fine.own-note { text-align: left; max-width: none; margin: 4px 0 22px; }
+
+/* The Network view (0.7.0) */
+.net-list { margin-bottom: 22px; }
+.net-card { border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); padding: 12px 14px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+.net-card p { color: var(--muted); line-height: 1.55; }
+.net-title { font-weight: 700; font-size: 13px; display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.net-prize { color: var(--accent); font-weight: 700; white-space: nowrap; }
+.net-size { color: var(--muted); font-weight: 400; font-size: 11px; white-space: nowrap; }
+.net-card .net-fine { font-size: 11px; color: var(--faint); }
+.net-card .net-fine.bad, .net-empty.bad { color: var(--error); }
+.net-id { font-size: 10px; color: var(--faint); word-break: break-all; }
+.net-card .btn-row { margin-top: 2px; }
+.net-empty { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 10px; }
+.fine.net-hint { margin: 2px 0 14px; }
+/* Whom the engine asked and who answered, and whose view the lists are. */
+.net-cover { margin-bottom: 18px; display: flex; flex-direction: column; gap: 4px; }
+.net-cover-line { font-size: 12px; color: var(--text); line-height: 1.5; }
+.net-cover-line.warn { color: var(--warn); }
+.net-cover .net-fine { font-size: 11px; color: var(--muted); line-height: 1.5; }
+.net-card .net-fact { font-size: 11px; color: var(--muted); }
+/* An answer kept from before, shown when a refresh failed or came back empty. */
+.net-card.stale { opacity: .55; }
+.net-empty.stale-note { color: var(--warn); }
+/* "How to fund this": an explanation and things to copy. It opens no wallet. */
+.net-how { border-top: 1px solid var(--line); padding-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.net-how[hidden] { display: none; }
+.net-how p { font-size: 11px; }
+#netResult { margin-bottom: 14px; }
+
+/* Copy, Ask again, Edit question (0.7.0) */
+.msg-actions { display: flex; gap: 4px; margin-top: 8px; white-space: normal; }
+.msg-actions button { font-size: 11px; color: var(--faint); padding: 3px 8px; border-radius: 6px; border: 1px solid transparent; }
+.msg-actions button:hover { color: var(--text); border-color: var(--line-hi); }
+.msg.bot pre { position: relative; }
+.code-copy {
+  position: absolute; top: 6px; right: 6px; font-size: 10px; color: var(--muted); padding: 2px 7px;
+  border-radius: 5px; border: 1px solid var(--line-hi); background: var(--bg); opacity: 0; transition: opacity 150ms;
+}
+.msg.bot pre:hover .code-copy, .code-copy:focus-visible { opacity: 1; }
+
+/* Kept chats (0.7.0) */
+.history { position: absolute; inset: 52px 0 0; z-index: 6; background: var(--bg); padding: 14px 18px; overflow-y: auto; animation: rise 260ms var(--ease); }
+.history-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 13px; }
+.history-item { display: flex; gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; margin-bottom: 8px; font-size: 12px; }
+.history-item .h-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; color: var(--text); }
+.history-item .h-title:hover { color: var(--accent); }
+.history-item .h-meta { color: var(--faint); font-size: 11px; white-space: nowrap; }
+.history-item.current { border-color: var(--accent); }
+.fine.history-note { margin: 8px 0 0; }
+/* The hosts this AInode asks when it searches (index peers). */
+.net-index { margin-bottom: 22px; }
+.fine.net-index-about { margin: 0 0 12px; }
+.net-index-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.net-index-row { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); padding: 8px 10px 8px 14px; }
+.net-index-host { flex: 1; min-width: 0; font-size: 12px; color: var(--text); word-break: break-all; }
+.net-index-tag { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--line-hi); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.net-index-row .tool { height: 26px; }
+.net-index-status { font-size: 11px; color: var(--muted); line-height: 1.55; margin: 0 0 12px; }

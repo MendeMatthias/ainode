@@ -1,0 +1,49 @@
+name: Platform report
+description: AInode on a computer we have not tested, working or not
+labels: ["platform"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        We cannot test on hardware we do not own. docs/platforms.md lists what
+        was never tried: a real GPU through Vulkan on Windows and Linux,
+        Windows 10, a PC without WSL, other Linux distributions. "It works on
+        X" and "it said Y, my computer is actually Z" are both real reports,
+        even if nothing crashed.
+
+        Nothing here asks for chat text or a file of yours. Please do not
+        paste either.
+  - type: input
+    id: os
+    attributes:
+      label: OS and version
+      placeholder: Windows 11 24H2, or Fedora 43, or macOS 15.2
+    validations: { required: true }
+  - type: input
+    id: arch
+    attributes:
+      label: CPU, memory and architecture
+      placeholder: Ryzen 7 5800X, 32 GB (x86_64), or Apple M2 Pro, 16 GB (arm64)
+    validations: { required: true }
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU, if any
+      placeholder: RTX 5080, or Apple integrated, or none
+  - type: input
+    id: version
+    attributes:
+      label: AInode version
+      placeholder: 0.9.1
+    validations: { required: true }
+  - type: textarea
+    id: said
+    attributes:
+      label: What the app said or did
+      description: Which model, what Status showed (memory, graphics card, engine), how far it got. A screenshot is fine.
+    validations: { required: true }
+  - type: textarea
+    id: actual
+    attributes:
+      label: What is actually the case, and how you know
+      description: The bit that makes this actionable.

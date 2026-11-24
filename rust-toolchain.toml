@@ -1,0 +1,7 @@
+# One toolchain for contributors and CI, so they cannot silently diverge.
+# `stable` rather than a fixed version: the app uses no nightly feature, and a
+# fixed version would make every contributor download a second toolchain.
+# The 0.9.1 release was built with Rust 1.98.1.
+[toolchain]
+channel = "stable"
+components = ["clippy"]

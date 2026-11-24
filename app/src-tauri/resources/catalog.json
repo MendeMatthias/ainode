@@ -1,0 +1,111 @@
+{
+  "schema": 1,
+  "note": "Models AInode offers. Each uri is content-addressed: any host that imports the exact files listed here serves the same link. Licences checked against primary sources, docs/model-licence.md.",
+  "models": [
+    {
+      "id": "granite-4.2-3b-q4km",
+      "name": "Granite 4.2 3B",
+      "publisher": "IBM",
+      "licence": "Apache-2.0",
+      "licence_url": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source_url": "https://huggingface.co/ibm-granite/granite-4.2-3b-GGUF",
+      "summary": "A small reasoning model for chat, writing and code. Runs on any Apple Silicon Mac and most PCs.",
+      "good_at": "Everyday chat, short writing, simple code",
+      "uri": "btx://pq4admq4hc7nnvddga9z0flrvg8rhxld390gxdjae3nt8gywty205nn7yhruydsxdkx8k9h87c9uj3z3wcs9h",
+      "size_bytes": 2244022910,
+      "files": [
+        {
+          "path": "LICENSE",
+          "size": 11358,
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "granite-4.2-3b-Q4_K_M.gguf",
+          "size": 2244011552,
+          "sha256": "e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5"
+        }
+      ],
+      "gguf": "granite-4.2-3b-Q4_K_M.gguf",
+      "ram_gb": 4
+    },
+    {
+      "id": "qwen3-8b-q4km",
+      "name": "Qwen3 8B",
+      "publisher": "Alibaba Qwen",
+      "licence": "Apache-2.0",
+      "licence_url": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source_url": "https://huggingface.co/Qwen/Qwen3-8B-GGUF",
+      "summary": "The most careful of the small models: in testing it got every question right. Needs 16 GB and answers more slowly than the 3B.",
+      "good_at": "Reasoning, writing, code, many languages",
+      "uri": "btx://pqsltmv73ntyl6x7hf8kclk8fkcxnccsgfy30lmkuqqx0mc5uzhpd9uslhqz2s9x0874vky5yst7nl270yrxm",
+      "size_bytes": 5027794846,
+      "files": [
+        {
+          "path": "LICENSE",
+          "size": 11358,
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "Qwen3-8B-Q4_K_M.gguf",
+          "size": 5027783488,
+          "sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785"
+        }
+      ],
+      "gguf": "Qwen3-8B-Q4_K_M.gguf",
+      "ram_gb": 16
+    },
+    {
+      "id": "granite-4.0-350m-q4km",
+      "name": "Granite 4.0 350M",
+      "publisher": "IBM",
+      "licence": "Apache-2.0",
+      "licence_url": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source_url": "https://huggingface.co/ibm-granite/granite-4.0-350m-GGUF",
+      "summary": "Tiny and fast, for a first try on a slow line. It makes mistakes; use the 3B for real answers.",
+      "good_at": "A first try, quick short answers",
+      "uri": "btx://pq33nsv5hxj5mgrs4r4256h80g0y6n7uqhkv0j56cs3nrfq2c9jt686pm507apg2ygtvhd7uc43maj58gc8hu",
+      "size_bytes": 236997118,
+      "files": [
+        {
+          "path": "LICENSE",
+          "size": 11358,
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "granite-4.0-350m-Q4_K_M.gguf",
+          "size": 236985760,
+          "sha256": "771c588a49607f274a2bba3185733607ebe6f74b996ab90e2d6bee0d98bcec52"
+        }
+      ],
+      "gguf": "granite-4.0-350m-Q4_K_M.gguf",
+      "ram_gb": 1,
+      "offered": false
+    },
+    {
+      "id": "gpt-oss-20b-mxfp4",
+      "name": "gpt-oss 20B",
+      "publisher": "OpenAI",
+      "licence": "Apache-2.0",
+      "licence_url": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source_url": "https://huggingface.co/ggml-org/gpt-oss-20b-GGUF",
+      "summary": "OpenAI's open model. Of the models tested on a Mac it knew the most and answered fastest.",
+      "good_at": "Knowledge, reasoning, code, other languages",
+      "uri": "btx://pqcjx57rargtrp5us2cgvfdttffzxrfnwfwyrd3m63u9n8wtjqpvs2zf326d025uwrya6wy8tx69mxuxfntv9",
+      "size_bytes": 12109577982,
+      "files": [
+        {
+          "path": "LICENSE",
+          "size": 11358,
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "gpt-oss-20b-MXFP4.gguf",
+          "size": 12109566624,
+          "sha256": "27cd6c432c7672cb812a92f611cf3ba7bbc35928262bb1e1253ff4ee6ae35901"
+        }
+      ],
+      "gguf": "gpt-oss-20b-MXFP4.gguf",
+      "ram_gb": 24
+    }
+  ]
+}

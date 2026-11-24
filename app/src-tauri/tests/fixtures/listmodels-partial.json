@@ -1,0 +1,87 @@
+{
+ "schema_version": 2,
+ "coverage": "incomplete",
+ "local_count": 1,
+ "models": [
+  {
+   "uri": "btx://pq33nsv5hxj5mgrs4r4256h80g0y6n7uqhkv0j56cs3nrfq2c9jt686pm507apg2ygtvhd7uc43maj58gc8hu",
+   "model_id": "8c670652e6953681c2a3aaa9ab9de879353f7017b31f2a6b108cc6902b0592f47d07747fba1428885b2edf73158efb2a",
+   "artifact_id": "bf29ca79102f2403778fef5e351d65cdb1d45564e018d87f8741fc1731bf080c1efcb2668b7a7746acd2876de2c01df5",
+   "label": "retrieved",
+   "seeded": false,
+   "pinned": false,
+   "observed_sources": 0,
+   "admission": "FETCHING",
+   "bytes_verified": false,
+   "structure_verified": false,
+   "bytes": 236997118,
+   "incomplete": true,
+   "complete": false,
+   "files": [
+    {
+     "file_index": 0,
+     "file_size": 11358,
+     "ranges": [
+      {
+       "first": 0,
+       "count": 1
+      }
+     ],
+     "complete": true,
+     "piece_count": 1,
+     "pieces_total": 1,
+     "piece_size": 4194304,
+     "hash_alg": "sha384"
+    },
+    {
+     "file_index": 1,
+     "file_size": 236985760,
+     "ranges": [
+      {
+       "first": 0,
+       "count": 1
+      },
+      {
+       "first": 6,
+       "count": 2
+      }
+     ],
+     "complete": false,
+     "piece_count": 3,
+     "pieces_total": 57,
+     "piece_size": 4194304,
+     "hash_alg": "sha384"
+    }
+   ],
+   "useful_bytes_served": 0,
+   "useful_bytes_received": 12582912,
+   "served": 0,
+   "received": 12582912,
+   "seeding_started_at": 0,
+   "last_activity": 1791772264,
+   "source_path": "",
+   "ratio": 0,
+   "state": "downloading",
+   "share": {
+    "uri": "btx://pq33nsv5hxj5mgrs4r4256h80g0y6n7uqhkv0j56cs3nrfq2c9jt686pm507apg2ygtvhd7uc43maj58gc8hu",
+    "copy_text": "btx://pq33nsv5hxj5mgrs4r4256h80g0y6n7uqhkv0j56cs3nrfq2c9jt686pm507apg2ygtvhd7uc43maj58gc8hu format=gguf",
+    "family": "",
+    "format": "gguf",
+    "quantization": "",
+    "signed": false,
+    "size_bytes": 236997118,
+    "file_count": 2
+   },
+   "aliases": [],
+   "name": "retrieved",
+   "imported_at": 1791772264,
+   "percent": 6
+  }
+ ],
+ "next_actions": [
+  "getmodeltransfers",
+  "searchmodels {\"scope\":\"LOCAL\"}",
+  "automatic_spend_atoms stays 0"
+ ],
+ "automatic_spend_atoms": 0
+}

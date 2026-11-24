@@ -1,0 +1,18 @@
+.DS_Store
+*.log
+# Model weights never go in git.
+*.gguf
+*.safetensors
+# TLS material, key files and helper state.
+tls/
+*.pem
+*.key
+*.sock
+# Linux release output (scripts/release-linux.sh).
+app/dist-linux/
+__pycache__/
+
+# ainode-wsl builds (app/wsl-host).
+app/wsl-host/target/
+# Windows release output (scripts/release-windows.ps1).
+app/dist-windows/

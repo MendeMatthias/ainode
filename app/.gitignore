@@ -1,0 +1,7 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+# Staged engine binaries come from upstream releases via scripts/stage-engine.sh.
+src-tauri/resources/engine/*
+!src-tauri/resources/engine/.keep

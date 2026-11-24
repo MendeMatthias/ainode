@@ -1,0 +1,28 @@
+{
+ "schema_version": 2,
+ "jobs": [
+  {
+   "job_id": "5bad42f5be1b2e5fd9e6f569b570a9c8",
+   "status": "running",
+   "created_ms": 1791772264552,
+   "model_id": "8c670652e6953681c2a3aaa9ab9de879353f7017b31f2a6b108cc6902b0592f47d07747fba1428885b2edf73158efb2a",
+   "bytes_committed": 8399966,
+   "pieces_committed": 3,
+   "file_index": 1,
+   "piece_index": 0,
+   "inflight": 8,
+   "peer_retries": 0,
+   "stalled_for_ms": 16,
+   "bytes_per_sec": 53164341,
+   "last_peer": "127.0.0.1:29447"
+  }
+ ],
+ "job_count": 1,
+ "used_bytes": 12594270,
+ "automatic_spend_atoms": 0,
+ "next_actions": [
+  "getmodeltransfers",
+  "getmodel FREE_ONLY",
+  "automatic_spend_atoms stays 0"
+ ]
+}

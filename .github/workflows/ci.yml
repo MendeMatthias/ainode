@@ -1,0 +1,111 @@
+# CI for AInode. Read this before approving a change to it.
+#
+# What this workflow can do: check out the public source, install public
+# dependencies from registry.npmjs.org and crates.io, and compile and test.
+# It runs on the three platforms AInode ships for, because the app has code
+# that only compiles on one of them (the Windows access lists and WSL, the
+# Mac login item, the Linux desktop paths).
+#
+# ACTION PINS. Every `uses:` in every workflow here is pinned to a full commit
+# SHA with the human version in a trailing comment. A tag is a mutable pointer:
+# `@v4` is whatever the action's owner decides it is at the moment the job
+# runs. `.github/dependabot.yml` moves the pins on a weekly pull request,
+# because a frozen action stops getting its own security fixes: the pin is
+# there so the change is REVIEWED, not so it never happens. Do not reintroduce
+# a tag ref.
+#
+# What it cannot do: there is no `secrets.` reference anywhere in this file, no
+# `pull_request_target` trigger, and the token is read-only (see `permissions`
+# below). It therefore cannot sign, publish, release, or push. Releases are
+# signed on the maintainer's machine and that is the design. Any future edit
+# that adds `secrets.`, `permissions: write`, or `pull_request_target` is a
+# change to the trust boundary and should be reviewed as one.
+#
+# What it does not do: stage the engine or run the tests that need one
+# (app/src-tauri/tests). The Mac helper takes minutes to build and needs one
+# pinned toolchain, and the live tests need the public model host. The unit
+# tests need neither: they pass on a fresh clone.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # A CI run is not an AInode: it must never be counted (backend/keeper.rs).
+  AINODE_CHECKIN_URL: http://127.0.0.1:9/
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-24.04, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      # rust-toolchain.toml at the root names the toolchain; this installs it.
+      - name: Show toolchain
+        shell: bash
+        run: rustup show && rustc --version && cargo --version
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: app/src-tauri
+
+      - name: Linux packages Tauri needs
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+            librsvg2-dev libxdo-dev libssl-dev build-essential pkg-config
+
+      # `npm ci` fails outright if package-lock.json and package.json disagree.
+      - name: npm ci
+        working-directory: app
+        run: npm ci
+
+      # `npm run build` is `tsc && vite build`: run them apart, so a type
+      # error is reported as a type error.
+      - name: tsc --noEmit
+        working-directory: app
+        run: npx tsc --noEmit
+
+      - name: vitest run
+        working-directory: app
+        run: npx vitest run
+
+      - name: vite build
+        working-directory: app
+        run: npx vite build
+
+      # --locked makes a pull request that edits Cargo.toml without refreshing
+      # Cargo.lock fail here rather than silently resolve to other versions.
+      - name: cargo test --no-run
+        working-directory: app/src-tauri
+        run: cargo test --locked --no-run
+
+      - name: cargo test --lib
+        working-directory: app/src-tauri
+        run: cargo test --locked --lib

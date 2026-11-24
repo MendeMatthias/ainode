@@ -1,0 +1,12 @@
+# cargo audit's exceptions, each with why (security audit 2026-10-18, L2).
+[advisories]
+ignore = [
+    # zip 4.6.1, through tauri-plugin-updater: the plugin uses zip only on
+    # Windows, to unpack a .zip update, and the Windows app is built without
+    # that feature (Cargo.toml), so no AInode build compiles zip. Cargo.lock
+    # still lists it because the lockfile covers every feature combination.
+    # Check again when the plugin moves to zip >= 9.
+    "RUSTSEC-2026-0367",
+    "RUSTSEC-2026-0368",
+    "RUSTSEC-2026-0369",
+]

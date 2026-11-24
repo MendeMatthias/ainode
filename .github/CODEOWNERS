@@ -1,0 +1,50 @@
+# Every path here was checked to exist in THIS repository on 2026-11-24.
+# A CODEOWNERS line that matches nothing protects nothing, silently, so do not
+# copy lines in from elsewhere without checking them.
+#
+# This only works paired with a branch protection rule on main that requires
+# review from code owners. Both, or neither is worth doing.
+
+# Default: the maintainer reviews everything. Only the maintainer merges.
+*                                           @MendeMatthias
+
+# ---------------------------------------------------------------------------
+# TRUST ANCHORS. Not ordinary files.
+#
+# `pubkey` in tauri.conf.json is the minisign key the in-app updater checks
+# every package against, and `endpoints` is where it looks. update.rs binds
+# every offer to its release name and version. Change any of these and an
+# installed app will accept a package the release key did not sign, or look
+# for updates on a host we do not control. No ordinary pull request edits them.
+# ---------------------------------------------------------------------------
+/app/src-tauri/tauri.conf.json              @MendeMatthias
+/app/src-tauri/src/update.rs                @MendeMatthias
+# What the web view may call. One more permission is one more thing a model's
+# output could reach.
+/app/src-tauri/capabilities/                @MendeMatthias
+
+# The engine pins. These decide which btx-modeld and which llama.cpp every user
+# runs, by sha256. A changed pin says where the new hash was measured.
+/app/scripts/stage-engine.sh                @MendeMatthias
+/app/scripts/stage-engine-linux.sh          @MendeMatthias
+/app/scripts/stage-engine-windows.sh        @MendeMatthias
+/app/scripts/build-engine-macos.sh          @MendeMatthias
+
+# Which host every AInode is given, which models it offers, and where it
+# checks in. A change here changes who sees every user's address.
+/app/src-tauri/resources/hosts.json         @MendeMatthias
+/app/src-tauri/resources/catalog.json       @MendeMatthias
+/app/src-tauri/src/backend/keeper.rs        @MendeMatthias
+
+# CI must NEVER hold a signing key, and it does not: this repository has no
+# Actions secrets and no environments, and no workflow references any.
+# Releases are signed on the maintainer's machine and that is the design.
+# What this rule guards against is a change that adds `secrets.`,
+# `permissions: write`, or a `pull_request_target` trigger.
+/.github/                                   @MendeMatthias
+
+# Licensing and attribution, and what the app promises about the network.
+/LICENSE                                    @MendeMatthias
+/THIRD-PARTY.md                             @MendeMatthias
+/app/scripts/licenses/                      @MendeMatthias
+/SECURITY.md                                @MendeMatthias

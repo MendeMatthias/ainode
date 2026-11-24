@@ -1,0 +1,66 @@
+# The clippy lints that catch bugs rather than taste, and a syntax check of
+# the workflows themselves.
+#
+# WHAT IS AND IS NOT ENFORCED. Of clippy, only `correctness` and `suspicious`
+# are enforced: those are the groups that flag probable BUGS. Both exit 0 on
+# this tree (checked on 2026-11-24, Rust 1.98.1), so nobody inherits a failure
+# they did not cause.
+#
+# `cargo fmt --check` is NOT here, on purpose. AInode's Rust was never run
+# through rustfmt (long lines are its style), and the check fails on the tree
+# as it is in about 730 places. A gate that is red on day one teaches every
+# contributor that a red check is normal. If the code is ever reformatted, that
+# lands first, as its own commit, and only then does the check become a gate.
+#
+# No secrets, no write permissions, no pull_request_target. Same trust boundary
+# as ci.yml.
+name: Style
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: style-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  workflows:
+    name: workflow run blocks parse as shell
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: every workflow run block parses as shell
+        run: |
+          python3 -m pip install --quiet pyyaml
+          python3 scripts/check-workflow-shell.py
+
+  # macOS, not ubuntu: the Tauri crate needs no extra system package there. On
+  # a bare ubuntu runner it does not compile before webkit2gtk and friends are
+  # installed, which is a lot of surface to keep up for a lint job.
+  clippy:
+    name: clippy correctness (app)
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Show toolchain
+        run: rustup show && rustc --version && cargo --version
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: app/src-tauri
+      - name: clippy correctness and suspicious
+        working-directory: app/src-tauri
+        run: cargo clippy --locked --all-targets -- -D clippy::correctness -D clippy::suspicious

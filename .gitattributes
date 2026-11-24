@@ -1,0 +1,8 @@
+# Every text file keeps LF on every checkout, on Windows too (a Windows
+# checkout turns text into CRLF otherwise).
+# - Tests read sources as text and match lines ending in \n: the interface
+#   tests read Rust files and the catalog, and update.rs embeds two scripts
+#   with include_str!.
+# - The shell scripts are run inside WSL from the Windows checkout
+#   (app/scripts/stage-engine-windows.sh). A CRLF script does not run there.
+* text=auto eol=lf
