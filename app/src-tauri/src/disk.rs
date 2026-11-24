@@ -282,9 +282,10 @@ mod tests {
 
     #[test]
     fn reads_this_computers_memory() {
-        // Every Apple Silicon Mac has at least 8 GB; any computer that builds
-        // this has more than 1 GB, in whole GiB on Linux.
-        let min = if cfg!(target_os = "macos") { 8 } else { 1 };
+        // Any computer that builds this has more than 1 GB, in whole GiB on
+        // Linux and Windows. Not "at least 8 GB on a Mac": a virtual Mac can
+        // have less (GitHub's macOS runner has 7, and hw.memsize says so).
+        let min = 1;
         assert!(super::ram_bytes() >= min * 1024 * 1024 * 1024, "{}", super::ram_bytes());
         if !cfg!(target_os = "macos") {
             assert_eq!(super::ram_bytes() % (1 << 30), 0);
