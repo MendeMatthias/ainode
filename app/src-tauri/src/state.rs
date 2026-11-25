@@ -724,7 +724,7 @@ fn write_bytes_atomic(path: &Path, bytes: &[u8], private: bool) -> Result<(), St
         f.write_all(bytes)?;
         f.sync_all()?;
         drop(f);
-        std::fs::rename(&tmp, path)?;
+        rename_over(&tmp, path)?;
         // A directory cannot be opened as a file on Windows; NTFS logs the
         // rename itself.
         #[cfg(unix)]
@@ -736,6 +736,26 @@ fn write_bytes_atomic(path: &Path, bytes: &[u8], private: bool) -> Result<(), St
         return Err(format!("write {}: {e}", path.display()));
     }
     Ok(())
+}
+
+/// `rename` over an existing file. On Windows another program can hold the
+/// target open for a moment without sharing "delete" (an antivirus, the
+/// search indexer), and the rename is refused with "Access is denied" or a
+/// sharing violation until it lets go: wait for it, up to about a second and a half,
+/// instead of failing the save (measured 2026-11-25: 90 of 150 writes failed
+/// against a reader that opens the file for 3 ms at a time).
+fn rename_over(from: &Path, to: &Path) -> std::io::Result<()> {
+    let mut wait = std::time::Duration::from_millis(2);
+    for _ in 0..13 {
+        match std::fs::rename(from, to) {
+            Err(e) if cfg!(windows) && matches!(e.raw_os_error(), Some(5) | Some(32)) => {
+                std::thread::sleep(wait);
+                wait = (wait * 2).min(std::time::Duration::from_millis(200));
+            }
+            r => return r,
+        }
+    }
+    std::fs::rename(from, to)
 }
 
 pub fn now_unix() -> u64 {
@@ -911,6 +931,50 @@ mod tests {
         assert_eq!(names.len(), 1, "{names:?}");
     }
 
+    /// Windows: an antivirus or the search indexer opens a file for a moment
+    /// without sharing "delete", and a rename over that file is refused
+    /// while it does. A write waits for it instead of failing (seen once in
+    /// the test below on 2026-11-25: all eight writers failed at the same
+    /// instant). And it does not wait for ever: a file held for good is an
+    /// error after about a second and a half.
+    #[cfg(windows)]
+    #[test]
+    fn atomic_write_waits_for_a_reader_that_holds_the_file() {
+        use std::os::windows::fs::OpenOptionsExt;
+        use std::time::{Duration, Instant};
+        let tmp = tempfile::tempdir().unwrap();
+        let p = tmp.path().join("settings.json");
+        write_json_atomic(&p, &Removed { uris: vec!["first".into()] }).unwrap();
+        // FILE_SHARE_READ only: no FILE_SHARE_DELETE, as a scanner opens it.
+        let hold = || std::fs::OpenOptions::new().read(true).share_mode(1).open(&p).unwrap();
+
+        // Held for 300 ms: the write goes through once the reader lets go.
+        let reader = hold();
+        let t = Instant::now();
+        std::thread::scope(|sc| {
+            sc.spawn(move || {
+                std::thread::sleep(Duration::from_millis(300));
+                drop(reader);
+            });
+            write_json_atomic(&p, &Removed { uris: vec!["second".into()] }).unwrap();
+        });
+        assert!(t.elapsed() >= Duration::from_millis(250), "it did not wait: {:?}", t.elapsed());
+        let back: Removed = serde_json::from_slice(&std::fs::read(&p).unwrap()).unwrap();
+        assert_eq!(back.uris, vec!["second".to_string()]);
+
+        // Held for good: an error in bounded time, the old content kept, no temp file left.
+        let reader = hold();
+        let t = Instant::now();
+        let err = write_json_atomic(&p, &Removed { uris: vec!["third".into()] }).unwrap_err();
+        assert!(t.elapsed() < Duration::from_secs(10), "{:?}", t.elapsed());
+        assert!(err.contains("settings.json"), "{err}");
+        drop(reader);
+        let back: Removed = serde_json::from_slice(&std::fs::read(&p).unwrap()).unwrap();
+        assert_eq!(back.uris, vec!["second".to_string()]);
+        let left: Vec<_> = std::fs::read_dir(tmp.path()).unwrap().flatten().map(|e| e.file_name()).collect();
+        assert_eq!(left.len(), 1, "temp files left behind: {left:?}");
+    }
+
     #[test]
     fn concurrent_atomic_writes_never_tear() {
         let tmp = tempfile::tempdir().unwrap();
@@ -1069,6 +1133,108 @@ mod tests {
             assert!(dev_run_refusal(&paths(f.root.join("dev-sock/modeld.sock"), PathBuf::from("data")), &f.live).is_some());
             // `..` could walk back into the live folders.
             let dotdot = f.root.join("dev-sock/../live-sock/modeld.sock");
+            assert!(dev_run_refusal(&paths(dotdot, f.root.join("dev-data")), &f.live).is_some());
+        }
+    }
+
+    /// The same guard on Windows, where a folder link is a junction (made
+    /// with `mklink /J`, which needs no privilege; a symlink does). Stand-in
+    /// folders in a tempdir, never the real ones.
+    #[cfg(windows)]
+    mod dev_run_windows {
+        use super::super::*;
+
+        struct Fx {
+            _tmp: tempfile::TempDir,
+            root: PathBuf,
+            live: LiveInstall,
+        }
+
+        fn fx() -> Fx {
+            let tmp = tempfile::tempdir().unwrap();
+            let root = tmp.path().to_path_buf();
+            for d in ["live-sock", "live-data/modelnet", "dev-sock", "dev-data"] {
+                std::fs::create_dir_all(root.join(d)).unwrap();
+            }
+            let live = LiveInstall::of(root.join("live-sock").join("modeld.sock"), Some(root.join("live-data")));
+            Fx { _tmp: tmp, root, live }
+        }
+
+        fn paths(socket: PathBuf, data_dir: PathBuf) -> Paths {
+            Paths { data_dir, engine_dir: PathBuf::from(r"C:\e"), socket }
+        }
+
+        fn junction(target: &Path, link: &Path) {
+            let out = std::process::Command::new("cmd").args(["/C", "mklink", "/J"]).arg(link).arg(target).output().unwrap();
+            assert!(out.status.success(), "mklink /J: {}", String::from_utf8_lossy(&out.stderr));
+        }
+
+        #[test]
+        fn folders_of_its_own_pass() {
+            let f = fx();
+            let p = paths(f.root.join("dev-sock").join("modeld.sock"), f.root.join("dev-data"));
+            assert_eq!(dev_run_refusal(&p, &f.live), None);
+            let p = paths(f.root.join("new").join("s").join("modeld.sock"), f.root.join("new").join("data"));
+            assert_eq!(dev_run_refusal(&p, &f.live), None);
+        }
+
+        #[test]
+        fn the_live_socket_folder_is_refused_however_it_is_spelled() {
+            let f = fx();
+            let data = f.root.join("dev-data");
+            let why = dev_run_refusal(&paths(f.root.join("live-sock").join("other.sock"), data.clone()), &f.live).expect("refused");
+            assert!(why.contains("socket folder"), "{why}");
+            assert!(dev_run_refusal(&paths(f.root.join("live-sock").join("sub").join("modeld.sock"), data.clone()), &f.live).is_some());
+            // Another letter case, and forward slashes: the same folder on Windows.
+            let upper = PathBuf::from(f.root.join("LIVE-SOCK").join("modeld.sock").to_string_lossy().to_uppercase());
+            assert!(dev_run_refusal(&paths(upper, data.clone()), &f.live).is_some(), "letter case");
+            let slashes = PathBuf::from(f.root.join("live-sock").join("modeld.sock").to_string_lossy().replace('\\', "/"));
+            assert!(dev_run_refusal(&paths(slashes, data.clone()), &f.live).is_some(), "forward slashes");
+            // Through a junction.
+            junction(&f.root.join("live-sock"), &f.root.join("alias-sock"));
+            assert!(dev_run_refusal(&paths(f.root.join("alias-sock").join("modeld.sock"), data), &f.live).is_some(), "junction");
+        }
+
+        #[test]
+        fn a_data_folder_that_is_or_reaches_the_live_one_is_refused() {
+            let f = fx();
+            let sock = f.root.join("dev-sock").join("modeld.sock");
+            assert!(dev_run_refusal(&paths(sock.clone(), f.root.join("live-data")), &f.live).is_some());
+            assert!(dev_run_refusal(&paths(sock.clone(), f.root.join("live-data").join("x")), &f.live).is_some(), "inside it");
+            assert!(dev_run_refusal(&paths(sock.clone(), f.root.clone()), &f.live).is_some(), "holds it");
+            let upper = PathBuf::from(f.root.join("live-data").to_string_lossy().to_uppercase());
+            assert!(dev_run_refusal(&paths(sock.clone(), upper), &f.live).is_some(), "letter case");
+            junction(&f.root.join("live-data"), &f.root.join("alias-data"));
+            assert!(dev_run_refusal(&paths(sock.clone(), f.root.join("alias-data")), &f.live).is_some(), "junction to it");
+            junction(&f.root.join("live-data").join("modelnet"), &f.root.join("alias-sub"));
+            assert!(dev_run_refusal(&paths(sock.clone(), f.root.join("alias-sub")), &f.live).is_some(), "junction into it");
+            // A junction to a folder inside it that does not exist yet: the
+            // run would create it there.
+            junction(&f.root.join("live-data").join("not-yet"), &f.root.join("alias-new"));
+            assert!(dev_run_refusal(&paths(sock, f.root.join("alias-new")), &f.live).is_some(), "junction to a folder not there yet");
+        }
+
+        #[test]
+        fn a_live_app_whose_data_was_moved_is_recognised() {
+            let f = fx();
+            let moved = f.root.join("other-drive").join("AInode");
+            std::fs::create_dir_all(&moved).unwrap();
+            write_location(&f.root.join("live-data"), &moved).unwrap();
+            let live = LiveInstall::of(f.live.socket.clone(), Some(f.root.join("live-data")));
+            let sock = f.root.join("dev-sock").join("modeld.sock");
+            assert!(dev_run_refusal(&paths(sock.clone(), moved.clone()), &live).is_some(), "the moved folder");
+            assert!(dev_run_refusal(&paths(sock.clone(), moved.join("modelnet")), &live).is_some(), "inside it");
+            assert!(dev_run_refusal(&paths(sock.clone(), f.root.join("live-data")), &live).is_some(), "the default folder still");
+            assert_eq!(dev_run_refusal(&paths(sock, f.root.join("dev-data")), &live), None);
+        }
+
+        #[test]
+        fn relative_paths_are_refused() {
+            let f = fx();
+            let why = dev_run_refusal(&paths(PathBuf::from("modeld.sock"), f.root.join("dev-data")), &f.live).expect("refused");
+            assert!(why.contains("relative"), "{why}");
+            assert!(dev_run_refusal(&paths(f.root.join("dev-sock").join("modeld.sock"), PathBuf::from("data")), &f.live).is_some());
+            let dotdot = f.root.join("dev-sock").join("..").join("live-sock").join("modeld.sock");
             assert!(dev_run_refusal(&paths(dotdot, f.root.join("dev-data")), &f.live).is_some());
         }
     }

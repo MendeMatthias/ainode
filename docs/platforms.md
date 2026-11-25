@@ -20,12 +20,19 @@ bytes. The release script has run with the new engine since 0.9.0.
 
 ## Linux (built 2026-10-13)
 
-x86_64, glibc 2.38 or newer and, from the v0.34.16 engine on, a libstdc++
-from GCC 14 or newer: Ubuntu 24.04+ and Debian 13+ have it (package version
-14.2.0), Fedora 40+ should (planned with GCC 14). Not run on any Linux yet
-with the new engine. (Up to AInode 0.8.4, on the v0.34.15 engine, upstream's
-archive shipped its own libstdc++, so glibc 2.38 was enough; Fedora 39, with
-GCC 13, met that and should not meet the new rule.)
+x86_64, glibc 2.39 or newer and, from the v0.34.16 engine on, a libstdc++
+from GCC 14 or newer: Ubuntu 24.04+ and Debian 13+ have both (run on the
+Windows PC on 2026-11-24: the 0.9.1 `.deb` on Debian 13, the AppImage on
+Ubuntu 24.04), Fedora 40+ should (glibc 2.39, GCC 14; not run). The app
+itself is built on Ubuntu 24.04 and needs GLIBC_2.39, and so did 0.8.4's:
+on Fedora 39 (glibc 2.38, GCC 13) both AppImages stop at once with
+"GLIBC_2.39 not found", before any window (measured). So no system with
+glibc 2.38 ever ran AInode for Linux, and none can update itself into the
+new engine's rule. The engine alone needs glibc 2.38 and CXXABI_1.3.15. The
+only systems where the app starts and the engine cannot are those with glibc
+2.39 or newer and a libstdc++ older than GCC 14; there the app says so in
+plain words (shown on the PC in the real window: Fedora 39's GCC 13 libstdc++
+given to the engine on Debian 13).
 `app/scripts/release-linux.sh` makes a `.deb` and an AppImage from the same
 code as the Mac app.
 
@@ -90,8 +97,8 @@ code as the Mac app.
   crash and orphan recovery), and the installed `.deb` clicked through in its
   real window (`lab/window/`). Evidence: `lab/evidence/2026-10-13/linux/`.
 - **Not yet:** a real desktop GPU through Vulkan (tested on the CPU, inside
-  WSL2), a distribution with glibc below 2.38, ARM. Unsigned, like most
-  Linux downloads.
+  WSL2), ARM. A distribution with glibc below 2.39 does not run the app at
+  all (Fedora 39, measured). Unsigned, like most Linux downloads.
 
 ## Windows (built 2026-10-14; `docs/windows.md`)
 
