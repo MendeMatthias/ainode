@@ -156,8 +156,12 @@ What is most wanted right now:
 AInode is in beta.
 
 - **Mac** (Apple Silicon, macOS 13 or newer): 0.9.1, signed and notarized.
-- **Windows and Linux:** 0.8.4 today, on upstream's v0.34.15 engine. 0.9.1
-  follows.
+- **Windows** (11, x64; Windows 10 is untested): 0.9.1. The installer is not
+  code-signed yet, so Windows asks before it runs.
+- **Linux** (x86_64, `.deb` and AppImage): 0.9.1. It needs glibc 2.39 and the
+  C++ library of GCC 14, or newer: [docs/platforms.md](docs/platforms.md).
+
+On Windows and Linux the engine is upstream's own v0.34.16 file, unmodified.
 
 Get it from the
 [releases page](https://github.com/MendeMatthias/ainode-releases/releases) or
