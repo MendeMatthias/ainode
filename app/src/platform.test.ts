@@ -57,5 +57,6 @@ describe("the instruction on each platform", () => {
       execFileSync(process.platform === "win32" ? "python" : "python3", ["-I", "../lab/replay-chat.py", "print"], { encoding: "utf8", env: { ...process.env, AINODE_OS: os } });
     expect(tool("linux")).toBe(linux);
     expect(tool("windows")).toBe(windows);
-  });
+    // Two Python starts: see logic.test.ts for why this has a longer limit.
+  }, 60_000);
 });
