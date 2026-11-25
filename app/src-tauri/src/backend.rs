@@ -1266,7 +1266,10 @@ impl Backend {
         }
         let r = self.engine.rpc.call("exportmodelpath", json!([uri])).await;
         self.forget_runnable_bytes();
-        let r = r.map_err(|e| e.to_string())?;
+        let r = match r {
+            Ok(v) => v,
+            Err(err) => return Err(self.export_failed(uri, &e, err.to_string()).await),
+        };
         let dir = r
             .get("path")
             .and_then(Value::as_str)
@@ -1320,6 +1323,72 @@ impl Backend {
         }
         self.invalidate();
         Ok(gguf)
+    }
+
+    /// exportmodelpath failed. For a model kept once the engine has no pieces
+    /// left to rebuild a damaged copy from (it answers "missing piece", seen
+    /// on 0.8.4 and 0.9.1 on 2026-11-24), and Get does nothing while the
+    /// damaged copy has the right size. So: if the copy no longer matches its
+    /// published checksum, delete it and forget the model in the engine, and
+    /// say in plain words that Get fetches it again. Any other failure is
+    /// passed on as it was.
+    async fn export_failed(&self, uri: &str, e: &CatalogEntry, err: String) -> String {
+        if !self.stored_once.lock().unwrap().contains_key(uri) {
+            return err;
+        }
+        let (Some(gguf), Some(want)) = (self.runnable_gguf(e, None), e.gguf_sha256().map(str::to_string)) else {
+            return err;
+        };
+        let path = gguf.clone();
+        let got = match tokio::task::spawn_blocking(move || disk::sha256_file(&path)).await {
+            Ok(Ok(s)) => s,
+            _ => return err,
+        };
+        if got == want {
+            return err;
+        }
+        // Forgetting the model restarts the engine: never under a running
+        // download (store_once keeps the same rule). Nothing is touched then.
+        // Nor under a chat server that has this file open (remove() has
+        // the same rule).
+        if self.chat.busy_with(uri) {
+            return format!(
+                "The copy of {} on this computer is damaged. Stop the chat first, then open the model again: AInode removes the damaged copy then.",
+                e.name
+            );
+        }
+        let _g = self.jobs_lock.lock().await;
+        // An engine that does not answer: nothing is known about its
+        // downloads, so nothing is touched and its own error is shown.
+        let Ok(snap) = self.fresh().await else { return err };
+        let busy = snap.jobs.iter().any(|j| j.active()) || !self.pending.lock().unwrap().is_empty();
+        if busy {
+            return format!(
+                "The copy of {} on this computer is damaged. AInode replaces it once the download that is running has finished: open the chat again then.",
+                e.name
+            );
+        }
+        if let Some(dir) = gguf.parent() {
+            if let Err(why) = self.delete_checkout_dir(dir) {
+                return format!("{err} (the copy of {} is damaged and could not be deleted: {why})", e.name);
+            }
+        }
+        self.exported.lock().unwrap().remove(uri);
+        self.forget_runnable_bytes();
+        let forgot = self.forget_stored_once(uri).await;
+        self.invalidate();
+        self.chat.note(&format!("damaged copy of {uri} deleted ({err}); sha256 {got}"));
+        if let Err(why) = forgot {
+            self.chat.note(&format!("forget {uri} after a damaged copy: {why}"));
+            return format!(
+                "The copy of {} on this computer was damaged and is removed now, but AInode could not finish tidying up after it ({why}). If the engine is not running, press Start; then Get the model again.",
+                e.name
+            );
+        }
+        format!(
+            "The copy of {} on this computer was damaged, and AInode keeps only one copy, so it could not be repaired. It is removed now: Get it again to chat.",
+            e.name
+        )
     }
 
     /// Delete a verified model's pieces (store_once.rs), only with no download

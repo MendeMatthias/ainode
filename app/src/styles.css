@@ -223,6 +223,9 @@ html[data-away] *, html[data-away] *::before, html[data-away] *::after { animati
   font-size: 12px; color: var(--muted); text-align: center;
 }
 .status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--faint); flex: none; margin-top: 7px; }
+/* An error can carry a path with no space in it (the loader's line when the
+   engine cannot start): let it break inside the line, not run past the edge. */
+.status #statusText { min-width: 0; overflow-wrap: anywhere; }
 .status[data-tone="ok"] .dot { background: var(--accent); box-shadow: 0 0 10px var(--glow); }
 .status[data-tone="busy"] .dot { background: var(--accent); animation: breathe 1.2s infinite; }
 .status[data-tone="warn"] .dot { background: var(--warn); }

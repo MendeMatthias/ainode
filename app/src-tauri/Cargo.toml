@@ -48,7 +48,7 @@ tauri-plugin-updater = "2"
 sha2 = "0.10"
 # Windows installs the signed setup.exe as it is. Without "zip" the plugin
 # cannot unpack a .zip update, and the zip crate (3 RustSec advisories in
-# 4.6.1, security audit L2) is not in the Windows app.
+# 4.6.1 when this was written, security audit L2) is not in the Windows app.
 tauri-plugin-updater = { version = "2", default-features = false, features = ["rustls-tls", "system-proxy"] }
 # The chat key (the OS's CSPRNG; /dev/urandom elsewhere).
 getrandom = "0.3"

@@ -194,7 +194,8 @@ stops and says what to do. The app comes out at
 `src-tauri/target/release/bundle/macos/AInode.app`, without a Developer ID
 signature.
 
-**Linux** (x86_64, glibc 2.38 or newer). Tools: the
+**Linux** (x86_64, glibc 2.39 or newer and GCC 14's libstdc++, as on
+Ubuntu 24.04: staging starts the engine once to prove it). Tools: the
 [Tauri 2 Linux prerequisites](https://tauri.app/start/prerequisites/), `curl`,
 `jq`, `binutils`, `iproute2`, `squashfs-tools`, `dpkg`, `python3`.
 

@@ -213,6 +213,25 @@ fn open_main_window(app: &tauri::App, paths: &Paths) -> Result<(), Box<dyn std::
         .find(|w| w.label == "main")
         .ok_or("no main window in the config")?
         .clone();
+    #[cfg(windows)]
+    let cfg = {
+        let mut cfg = cfg;
+        // The room for the window: the screen without the taskbar, in the
+        // window's own units.
+        let screen = app.primary_monitor().ok().flatten().map(|m| {
+            let area = m.work_area().size;
+            (area.width as f64 / m.scale_factor(), area.height as f64 / m.scale_factor())
+        });
+        let scale = windows_text_scale();
+        (cfg.width, cfg.height, cfg.min_width, cfg.min_height) =
+            grown_for_text_size(cfg.width, cfg.height, cfg.min_width, cfg.min_height, scale, screen);
+        // A grown window is centred: where Windows would put it by itself,
+        // its bottom edge can end up under the taskbar.
+        if scale > 1.0 {
+            cfg.center = true;
+        }
+        cfg
+    };
     // WebDriver (tauri-driver, which sets TAURI_WEBVIEW_AUTOMATION) can only
     // attach to the web context Tauri makes, not to the ephemeral one wry
     // makes for an incognito webview. Under automation the window is not
@@ -223,6 +242,47 @@ fn open_main_window(app: &tauri::App, paths: &Paths) -> Result<(), Box<dyn std::
         .incognito(cfg.incognito && !automation)
         .build()?;
     Ok(())
+}
+
+/// Windows: "Text size" under Accessibility (100 to 225 %). WebView2 draws
+/// the whole page that much larger, but Tauri sizes the window by the
+/// display's scale alone: at 143 % the page had 322 of its 460 px and the
+/// lines at the bottom wrapped (measured 2026-11-25 on the PC, every version).
+/// 1.0 when the setting is not there.
+#[cfg(windows)]
+fn windows_text_scale() -> f64 {
+    use windows_sys::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_DWORD};
+    let key: Vec<u16> = "Software\\Microsoft\\Accessibility\0".encode_utf16().collect();
+    let name: Vec<u16> = "TextScaleFactor\0".encode_utf16().collect();
+    let mut value: u32 = 0;
+    let mut len: u32 = 4;
+    // SAFETY: both strings end in NUL, and `value` is the 4 bytes `len` names.
+    let rc = unsafe {
+        RegGetValueW(HKEY_CURRENT_USER, key.as_ptr(), name.as_ptr(), RRF_RT_REG_DWORD, std::ptr::null_mut(), (&mut value as *mut u32).cast(), &mut len)
+    };
+    if rc == 0 && (100..=225).contains(&value) {
+        value as f64 / 100.0
+    } else {
+        1.0
+    }
+}
+
+/// The window's size and smallest size for a text size of `scale`: wider by
+/// that factor, so the page keeps the width it was designed for, and taller
+/// by it too, but never larger than the screen leaves room for (`screen`:
+/// the screen without the taskbar, width and height in the window's own
+/// units; 40 of the height are the window's own title bar). A screen smaller
+/// than the designed window never shrinks it.
+#[cfg(any(windows, test))]
+fn grown_for_text_size(w: f64, h: f64, min_w: Option<f64>, min_h: Option<f64>, scale: f64, screen: Option<(f64, f64)>) -> (f64, f64, Option<f64>, Option<f64>) {
+    if !(scale > 1.0 && scale <= 2.25) {
+        return (w, h, min_w, min_h);
+    }
+    let room_w = screen.map(|(sw, _)| sw.max(w)).unwrap_or(f64::MAX);
+    let room_h = screen.map(|(_, sh)| (sh - 40.0).max(h)).unwrap_or(f64::MAX);
+    let fit_w = |v: f64| (v * scale).round().min(room_w);
+    let fit_h = |v: f64| (v * scale).round().min(room_h);
+    (fit_w(w), fit_h(h), min_w.map(fit_w), min_h.map(fit_h))
 }
 
 /// Linux: the GPU drivers keep compiled shaders on disk (Mesa in
@@ -251,6 +311,25 @@ fn no_gpu_disk_caches() {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_window_grows_with_windows_text_size_and_stops_at_the_screen() {
+        use super::grown_for_text_size as g;
+        // No setting, or one outside what Windows offers: the window as designed.
+        assert_eq!(g(460.0, 760.0, Some(420.0), Some(640.0), 1.0, Some((1920.0, 1040.0))), (460.0, 760.0, Some(420.0), Some(640.0)));
+        assert_eq!(g(460.0, 760.0, Some(420.0), Some(640.0), 9.0, Some((1920.0, 1040.0))), (460.0, 760.0, Some(420.0), Some(640.0)));
+        // 143 % on a tall screen: the page keeps 460 px (658 / 1.43).
+        assert_eq!(g(460.0, 760.0, Some(420.0), Some(640.0), 1.43, Some((2560.0, 1600.0))), (658.0, 1087.0, Some(601.0), Some(915.0)));
+        // 225 % on a 1080 screen: as wide as the page needs, as tall as the screen has.
+        assert_eq!(g(460.0, 760.0, Some(420.0), Some(640.0), 2.25, Some((1920.0, 1080.0))), (1035.0, 1040.0, Some(945.0), Some(1040.0)));
+        // A laptop: 1080 at 125 % leaves 816 after the taskbar; 143 % text stops there less the title bar.
+        assert_eq!(g(460.0, 760.0, Some(420.0), Some(640.0), 1.43, Some((1536.0, 816.0))), (658.0, 776.0, Some(601.0), Some(776.0)));
+        // A screen shorter than the designed window never shrinks it.
+        assert_eq!(g(460.0, 760.0, None, None, 1.5, Some((1280.0, 700.0))).1, 760.0);
+        // A small panel (1280 x 800 at 150 %: 853 x 760 after the taskbar) at 225 % text:
+        // no wider than the screen, and the smallest size with it.
+        assert_eq!(g(460.0, 760.0, Some(420.0), Some(640.0), 2.25, Some((853.0, 760.0))), (853.0, 760.0, Some(853.0), Some(760.0)));
+    }
+
     /// The Linux window is the shared one, created from code (see
     /// open_main_window): only `create` may differ.
     #[test]
