@@ -611,7 +611,15 @@ function mockApi(): Api {
     },
     async reveal() {},
     // Long enough to see the loading scene (a real start takes five to twenty seconds).
-    async chatStart() { await wait(6000); return { port: 0, key: "" }; },
+    // `?mock=running&nostart`: the start fails, with the longest message it can give.
+    async chatStart() {
+      if (new URLSearchParams(location.search).has("nostart")) {
+        await wait(1500);
+        throw new Error("The copy of Granite 4.2 3B on this computer was damaged, and AInode keeps only one copy, so it could not be repaired. It is removed now: Get it again to chat.");
+      }
+      await wait(6000);
+      return { port: 0, key: "" };
+    },
     async chatStop() {},
     async setTheme(t) { st.theme = t; },
     async setPref(name, on) { st[name] = on; },

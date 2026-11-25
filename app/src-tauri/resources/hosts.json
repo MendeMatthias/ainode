@@ -1,5 +1,5 @@
 {
   "schema": 1,
-  "note": "Public BTX model hosts. The engine is given the first one (one host at a time until btxchain/btx#229 ships). 20.196.8.98 passed Phase 0 on 2026-10-12: fetched from AS5384 (UAE residential), byte-identical to IBM's file.",
+  "note": "Public BTX model hosts. The engine is given the first one (one host at a time until btxchain/btx#229 ships).",
   "hosts": ["20.196.8.98:29447"]
 }

@@ -182,6 +182,8 @@ export async function openChat(
     if (current?.uri === m.uri) {
       const why = `Could not start the model: ${e instanceof Error ? e.message : String(e)}`;
       if (scene && !history.length) scene.fail(why); else sys(why);
+      // Nothing is starting any more: the box must not go on saying so.
+      $<HTMLTextAreaElement>("prompt").placeholder = "The model did not start";
     }
     return;
   }
