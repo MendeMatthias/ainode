@@ -356,7 +356,9 @@ describe("lab/replay-chat.py", () => {
     // Windows names its interpreter python (python3 is the Store stub there).
     const tool = execFileSync(process.platform === "win32" ? "python" : "python3", ["-I", "../lab/replay-chat.py", "print"], { encoding: "utf8" });
     expect(tool).toBe(systemPrompt("Granite 4.2 3B", "IBM"));
-  });
+    // Starting Python took 9 s once on a Windows runner (2026-11-25); the
+    // default limit is 5 s.
+  }, 60_000);
 });
 
 describe("mdBlocks tables", () => {
