@@ -155,10 +155,10 @@ What is most wanted right now:
 
 AInode is in beta.
 
-- **Mac** (Apple Silicon, macOS 13 or newer): 0.9.1, signed and notarized.
-- **Windows** (11, x64; Windows 10 is untested): 0.9.1. The installer is not
+- **Mac** (Apple Silicon, macOS 13 or newer): 0.9.2, signed and notarized.
+- **Windows** (11, x64; Windows 10 is untested): 0.9.2. The installer is not
   code-signed yet, so Windows asks before it runs.
-- **Linux** (x86_64, `.deb` and AppImage): 0.9.1. It needs glibc 2.39 and the
+- **Linux** (x86_64, `.deb` and AppImage): 0.9.2. It needs glibc 2.39 and the
   C++ library of GCC 14, or newer: [docs/platforms.md](docs/platforms.md).
 
 On Windows and Linux the engine is upstream's own v0.34.16 file, unmodified.
@@ -172,7 +172,7 @@ each version: [docs/](docs) (`release-notes-*.md`).
 ## Build from source
 
 Everything is run from `app/`. You need Node 20 or newer and stable Rust
-(`rust-toolchain.toml` names the toolchain). The 0.9.1 release was built with
+(`rust-toolchain.toml` names the toolchain). The 0.9.2 release was built on the Mac with
 Node 24.18 and Rust 1.98.1.
 
 ```bash
