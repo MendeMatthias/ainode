@@ -23,7 +23,8 @@ bytes. The release script has run with the new engine since 0.9.0.
 x86_64, glibc 2.39 or newer and, from the v0.34.16 engine on, a libstdc++
 from GCC 14 or newer: Ubuntu 24.04+ and Debian 13+ have both (run on the
 Windows PC on 2026-11-24: the 0.9.1 `.deb` on Debian 13, the AppImage on
-Ubuntu 24.04), Fedora 40+ should (glibc 2.39, GCC 14; not run). The app
+Ubuntu 24.04; and on 2026-11-26: the 0.9.2 `.deb` on Debian 13, the AppImage
+on Ubuntu 24.04 and Debian 13), Fedora 40+ should (glibc 2.39, GCC 14; not run). The app
 itself is built on Ubuntu 24.04 and needs GLIBC_2.39, and so did 0.8.4's:
 on Fedora 39 (glibc 2.38, GCC 13) both AppImages stop at once with
 "GLIBC_2.39 not found", before any window (measured). So no system with
