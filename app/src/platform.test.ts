@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import { systemPrompt } from "./logic";
-import { deviceFor, osFrom, platformFor } from "./platform";
+import { deviceFor, osFrom, platformFor, playsVideo } from "./platform";
 
 // User agents the three webviews send (Tauri 2): WKWebView, WebKitGTK 2.4x,
 // WebView2.
@@ -22,6 +22,11 @@ describe("platform", () => {
   it("names the computer the way each platform does", () => {
     expect([deviceFor("mac"), deviceFor("linux"), deviceFor("windows")]).toEqual(["Mac", "computer", "PC"]);
     expect([platformFor("mac"), platformFor("linux"), platformFor("windows")]).toEqual(["Mac", "Linux", "Windows"]);
+  });
+  it("plays the chat scene's face as a video everywhere but on Linux", () => {
+    // WebKitGTK without the GStreamer plugin it needs (the AppImage) loses the
+    // page to a <video>; Linux shows the still.
+    expect([playsVideo("mac"), playsVideo("windows"), playsVideo("linux")]).toEqual([true, true, false]);
   });
 });
 

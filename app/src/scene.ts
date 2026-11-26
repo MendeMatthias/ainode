@@ -5,7 +5,7 @@
 // strands, the field calms, and the words scramble in. Reduced motion shows
 // the still and plain text. The scene is removed with the first message.
 import type { Face } from "./api";
-import { THIS } from "./platform";
+import { OS, THIS, playsVideo } from "./platform";
 import { ElectricMark, LetterField, calm, hoverScramble, lattice, scrambleIn, shapeBTX, shapeFromImage } from "./fx";
 import chipStill from "./assets/faces/chip.webp";
 import glyphsStill from "./assets/faces/glyphs.webp";
@@ -54,7 +54,8 @@ export function mountScene(thread: HTMLElement, name: string, faceSetting: Face 
   let mark: ElectricMark | null = null;
   const stops: (() => void)[] = [];
   // The face's picture (its loop, or the still), placed on the mark's box.
-  const media: HTMLImageElement | HTMLVideoElement = face.loop && !calm() ? document.createElement("video") : document.createElement("img");
+  // On Linux always the still: see playsVideo.
+  const media: HTMLImageElement | HTMLVideoElement = face.loop && !calm() && playsVideo(OS) ? document.createElement("video") : document.createElement("img");
   media.className = "scene-face-media";
   if (media instanceof HTMLVideoElement) {
     media.muted = true; media.loop = true; media.playsInline = true; media.autoplay = true;
