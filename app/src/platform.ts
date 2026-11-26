@@ -23,6 +23,16 @@ export function platformFor(os: Os): string {
   return os === "mac" ? "Mac" : os === "windows" ? "Windows" : "Linux";
 }
 
+/**
+ * Whether the chat's loading scene may play a face as a video. Not on Linux:
+ * WebKitGTK plays video through GStreamer, and where a plugin it needs is
+ * missing (the AppImage carries none) the page stops answering once the video
+ * element exists. There the face is its still picture.
+ */
+export function playsVideo(os: Os): boolean {
+  return os !== "linux";
+}
+
 export const DEVICE = deviceFor(OS);
 export const PLATFORM = platformFor(OS);
 export const THIS = `this ${DEVICE}`;
