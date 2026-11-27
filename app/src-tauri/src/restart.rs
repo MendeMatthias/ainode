@@ -89,6 +89,49 @@ fn own_session(cmd: &mut std::process::Command) {
     }
 }
 
+/// Before an update is installed: our output and our errors go to /dev/null
+/// where nobody reads them any more. The installer inherits them, and a
+/// `dpkg -i` that writes into a pipe whose reader is gone is killed
+/// (SIGPIPE), possibly halfway, which leaves the package half installed.
+/// An AInode started under WSL with `wslg.exe -- setsid ainode` has such a
+/// pipe once `wslg.exe` has exited; so has one whose terminal was closed. A
+/// reader that is still there, a file or the journal is kept.
+#[cfg(target_os = "linux")]
+pub fn quiet_dead_output() {
+    quiet_if_dead(libc::STDOUT_FILENO);
+    quiet_if_dead(libc::STDERR_FILENO);
+}
+
+/// Point `fd` at /dev/null if nobody reads it any more: a pipe without a
+/// reader (POLLERR), a terminal that hung up (POLLHUP), or a descriptor
+/// that is closed (POLLNVAL).
+#[cfg(any(target_os = "linux", all(unix, test)))]
+fn quiet_if_dead(fd: libc::c_int) {
+    let mut p = libc::pollfd { fd, events: libc::POLLOUT, revents: 0 };
+    // SAFETY: poll reads and writes only `p`, and returns at once (timeout 0).
+    let n = unsafe { libc::poll(&mut p, 1, 0) };
+    if n != 1 || p.revents & (libc::POLLERR | libc::POLLHUP | libc::POLLNVAL) == 0 {
+        return;
+    }
+    // SAFETY: the path is a NUL-terminated literal. dup2 replaces `fd`
+    // atomically, and the copy it makes is inherited by a child (it does not
+    // carry close-on-exec), so the temporary descriptor may have it.
+    unsafe {
+        let null = libc::open(c"/dev/null".as_ptr(), libc::O_WRONLY | libc::O_CLOEXEC);
+        if null < 0 {
+            return;
+        }
+        if null == fd {
+            // `fd` was closed and the open landed on its number: it is the
+            // descriptor we want. Keep it, and let a child inherit it.
+            libc::fcntl(fd, libc::F_SETFD, 0);
+            return;
+        }
+        libc::dup2(null, fd);
+        libc::close(null);
+    }
+}
+
 /// Is this descriptor a terminal or a pipe?
 #[cfg(any(target_os = "linux", all(unix, test)))]
 fn ends_with_the_session(fd: libc::c_int) -> bool {
@@ -152,5 +195,102 @@ mod tests {
         assert!(!ends_with_the_session(file.as_raw_fd()));
         let null = std::fs::File::open("/dev/null").expect("/dev/null");
         assert!(!ends_with_the_session(null.as_raw_fd()));
+    }
+
+    /// Is `fd` the null device? By device number, which is the same check on
+    /// Linux and on a Mac.
+    fn is_dev_null(fd: libc::c_int) -> bool {
+        use std::os::unix::fs::{FileTypeExt, MetadataExt};
+        let null = std::fs::metadata("/dev/null").expect("/dev/null");
+        // SAFETY: fstat writes only into `st`.
+        let st = unsafe {
+            let mut st: libc::stat = std::mem::zeroed();
+            if libc::fstat(fd, &mut st) != 0 {
+                return false;
+            }
+            st
+        };
+        null.file_type().is_char_device() && (st.st_mode & libc::S_IFMT) == libc::S_IFCHR && st.st_rdev as u64 == null.rdev()
+    }
+
+    /// A pipe whose reading end is closed: only the writer is left.
+    ///
+    /// Tests run on several threads, and some start a child. A child started
+    /// by another test between `pipe` and `close` inherits the reading end
+    /// and keeps the pipe read for as long as it lives. So both ends are
+    /// marked close-on-exec at once, and this waits until the pipe really has
+    /// no reader before it hands the writer out.
+    fn pipe_nobody_reads() -> libc::c_int {
+        let mut fds = [0; 2];
+        // SAFETY: pipe fills the two descriptors; the reader is closed here,
+        // the caller closes the writer. fcntl and poll take any descriptor.
+        unsafe {
+            assert_eq!(libc::pipe(fds.as_mut_ptr()), 0);
+            libc::fcntl(fds[0], libc::F_SETFD, libc::FD_CLOEXEC);
+            libc::fcntl(fds[1], libc::F_SETFD, libc::FD_CLOEXEC);
+            libc::close(fds[0]);
+        }
+        let dead = libc::POLLERR | libc::POLLHUP;
+        for _ in 0..2000 {
+            let mut p = libc::pollfd { fd: fds[1], events: libc::POLLOUT, revents: 0 };
+            // SAFETY: poll reads and writes only `p`.
+            if unsafe { libc::poll(&mut p, 1, 0) } == 1 && p.revents & dead != 0 {
+                return fds[1];
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        panic!("the pipe still has a reader after 20 s");
+    }
+
+    #[test]
+    fn a_pipe_nobody_reads_is_pointed_at_dev_null() {
+        let w = pipe_nobody_reads();
+        assert!(!is_dev_null(w));
+        quiet_if_dead(w);
+        assert!(is_dev_null(w), "the writer now goes to /dev/null");
+        // SAFETY: opened in this test.
+        unsafe { libc::close(w) };
+    }
+
+    #[test]
+    fn a_pipe_still_read_a_file_and_dev_null_are_kept() {
+        use std::os::fd::AsRawFd;
+        let mut fds = [0; 2];
+        // SAFETY: pipe fills the two descriptors, closed below.
+        assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr()) }, 0);
+        quiet_if_dead(fds[1]);
+        assert!(!is_dev_null(fds[1]), "a pipe with its reader is kept");
+        // SAFETY: both were just opened here.
+        unsafe {
+            libc::close(fds[0]);
+            libc::close(fds[1]);
+        }
+        let file = tempfile::tempfile().expect("a temp file");
+        quiet_if_dead(file.as_raw_fd());
+        assert!(!is_dev_null(file.as_raw_fd()), "a file is kept");
+        let null = std::fs::OpenOptions::new().write(true).open("/dev/null").expect("/dev/null");
+        quiet_if_dead(null.as_raw_fd());
+        assert!(is_dev_null(null.as_raw_fd()), "/dev/null stays what it is");
+    }
+
+    /// The failure itself: a child that writes into a pipe nobody reads is
+    /// killed by SIGPIPE; after `quiet_if_dead` the same child finishes.
+    #[test]
+    fn a_child_writing_into_the_dead_pipe_survives_after_the_fix() {
+        use std::os::fd::FromRawFd;
+        use std::os::unix::process::ExitStatusExt;
+        let run = |fd: libc::c_int| {
+            // SAFETY: a duplicate, owned by the Stdio from here on.
+            let out = unsafe { std::process::Stdio::from_raw_fd(libc::dup(fd)) };
+            Command::new("sh").args(["-c", "sleep 0.2; echo one; echo two"]).stdout(out).status().expect("sh runs")
+        };
+        let w = pipe_nobody_reads();
+        let before = run(w);
+        assert_eq!(before.signal(), Some(libc::SIGPIPE), "without the fix the child dies of SIGPIPE");
+        quiet_if_dead(w);
+        let after = run(w);
+        assert!(after.success(), "with it the child finishes: {after:?}");
+        // SAFETY: opened in this test.
+        unsafe { libc::close(w) };
     }
 }
