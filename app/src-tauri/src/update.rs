@@ -286,15 +286,35 @@ pub async fn install(app: &tauri::AppHandle, backend: &crate::backend::Backend) 
     backend.shutdown().await;
     #[cfg(windows)]
     crate::wsl::terminate().await;
+    // The installer inherits our output: never let it write into a pipe
+    // nobody reads (restart.rs, quiet_dead_output).
+    #[cfg(target_os = "linux")]
+    crate::restart::quiet_dead_output();
     if let Err(e) = update.install(bytes) {
         // AInode stays open as it was: its engine may start again (the page
         // starts it, or the self-heal).
         backend.engine.reopen();
-        return Err(format!("The update could not be installed: {e}. AInode is unchanged; start it again."));
+        return Err(install_failed(&e.to_string(), installs_by_itself()));
     }
     crate::restart::now(app)
 }
 
+
+/// What the page says when the install failed. Where AInode replaces its
+/// own file (Mac, Windows, AInode as an AppImage) a failed install leaves it
+/// as it was. A `.deb` is installed by the system's package tool, which can
+/// stop halfway: then the running AInode still works, but the next start may
+/// not, so the message says what to do.
+fn install_failed(why: &str, by_itself: bool) -> String {
+    if by_itself {
+        format!("The update could not be installed: {why}. AInode is unchanged and stays open.")
+    } else {
+        format!(
+            "The update could not be installed: {why}. AInode stays open. The package may be left half installed: \
+             if AInode does not start next time, install the .deb again from easybtx.com/ai."
+        )
+    }
+}
 
 /// The scratch update test (plan 3.1, "prove before release"), debug builds
 /// only: with AINODE_UPDATE_SELFTEST set, check at launch and install what
@@ -326,6 +346,15 @@ pub fn selftest(app: &tauri::AppHandle, backend: &std::sync::Arc<crate::backend:
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_failed_install_says_unchanged_only_where_that_is_sure() {
+        let own = install_failed("no space", true);
+        assert!(own.contains("no space") && own.contains("AInode is unchanged"));
+        let deb = install_failed("dpkg stopped", false);
+        assert!(deb.contains("dpkg stopped") && !deb.contains("unchanged"));
+        assert!(deb.contains("half installed") && deb.contains("install the .deb again"));
+    }
 
     #[test]
     fn updated_from_only_after_an_update() {
