@@ -30,6 +30,7 @@ pub mod login;
 pub mod neighbour;
 pub mod os;
 pub mod own;
+mod restart;
 pub mod rpc;
 pub mod state;
 pub mod store_once;
@@ -141,6 +142,9 @@ pub fn run() {
                     wsl::terminate().await;
                 });
             }
+            // An update or a moved data folder asked for a restart (restart.rs).
+            #[cfg(target_os = "linux")]
+            restart::on_exit(handle);
         }
     });
 }

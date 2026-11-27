@@ -34,7 +34,7 @@ pub async fn places(b: B<'_>) -> Result<Vec<backend::PlaceOut>, String> {
 /// again. (The handle is injected, like the state.)
 #[tauri::command]
 pub async fn relaunch(app: tauri::AppHandle) -> Result<(), String> {
-    app.restart()
+    crate::restart::now(&app)
 }
 
 #[tauri::command]

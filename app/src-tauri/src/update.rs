@@ -292,7 +292,7 @@ pub async fn install(app: &tauri::AppHandle, backend: &crate::backend::Backend) 
         backend.engine.reopen();
         return Err(format!("The update could not be installed: {e}. AInode is unchanged; start it again."));
     }
-    app.restart()
+    crate::restart::now(app)
 }
 
 
