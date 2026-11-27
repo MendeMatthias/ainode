@@ -32,7 +32,7 @@ body:
     id: os
     attributes:
       label: OS, architecture, and AInode version or commit
-      placeholder: macOS 15.2, arm64, AInode 0.9.2
+      placeholder: macOS 15.2, arm64, AInode 0.9.3
     validations: { required: true }
   - type: textarea
     id: logs
