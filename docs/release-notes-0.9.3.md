@@ -22,6 +22,7 @@ b90f4f920f87241b8c9f0146170ffa3053794476b11965ccd88ab7d208e7b9b5  AInode_0.9.3_a
 ## Good to know
 - Everything under "Good to know" in the 0.9.2 and 0.9.1 notes still holds. The engine is the same: upstream BTX `btx-modeld` v0.34.16, on the Mac built by AInode from upstream's source, on Windows and Linux upstream's own file.
 - **Linux**, after a restart of AInode by itself (an update): what AInode writes to a terminal or a pipe is no longer shown there, because the restarted AInode no longer belongs to that terminal. A log file or the system journal still gets it.
+- **Linux inside WSL**, started from a Windows shortcut with `wslg.exe`: the update to 0.9.3 is still installed by the older version, so start AInode by hand once after it. From 0.9.3 on it comes back by itself.
 - AInode only downloads. It never serves, pays or earns, and has no wallet.
 
 Feedback: Send feedback in the app, open an issue here, or write in the BTX chat (reach it from @btx_ecosystem).
