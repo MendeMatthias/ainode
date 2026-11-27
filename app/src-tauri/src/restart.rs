@@ -213,14 +213,33 @@ mod tests {
         null.file_type().is_char_device() && (st.st_mode & libc::S_IFMT) == libc::S_IFCHR && st.st_rdev as u64 == null.rdev()
     }
 
-    /// A pipe whose reading end is already closed: only the writer is left.
+    /// A pipe whose reading end is closed: only the writer is left.
+    ///
+    /// Tests run on several threads, and some start a child. A child started
+    /// by another test between `pipe` and `close` inherits the reading end
+    /// and keeps the pipe read for as long as it lives. So both ends are
+    /// marked close-on-exec at once, and this waits until the pipe really has
+    /// no reader before it hands the writer out.
     fn pipe_nobody_reads() -> libc::c_int {
         let mut fds = [0; 2];
-        // SAFETY: pipe fills the two descriptors; the reader is closed at
-        // once, the caller closes the writer.
-        assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr()) }, 0);
-        unsafe { libc::close(fds[0]) };
-        fds[1]
+        // SAFETY: pipe fills the two descriptors; the reader is closed here,
+        // the caller closes the writer. fcntl and poll take any descriptor.
+        unsafe {
+            assert_eq!(libc::pipe(fds.as_mut_ptr()), 0);
+            libc::fcntl(fds[0], libc::F_SETFD, libc::FD_CLOEXEC);
+            libc::fcntl(fds[1], libc::F_SETFD, libc::FD_CLOEXEC);
+            libc::close(fds[0]);
+        }
+        let dead = libc::POLLERR | libc::POLLHUP;
+        for _ in 0..2000 {
+            let mut p = libc::pollfd { fd: fds[1], events: libc::POLLOUT, revents: 0 };
+            // SAFETY: poll reads and writes only `p`.
+            if unsafe { libc::poll(&mut p, 1, 0) } == 1 && p.revents & dead != 0 {
+                return fds[1];
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        panic!("the pipe still has a reader after 20 s");
     }
 
     #[test]
