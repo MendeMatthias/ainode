@@ -191,7 +191,8 @@ export interface LinkModel { uri: string; title: string; local: LocalState; prog
 /** Opening a link: the share card and what the helper knows (both upstream's JSON, read leniently). */
 export interface LinkCard { uri: string; store_id?: string; card: Record<string, unknown>; show: Record<string, unknown> | null }
 /** The start-up search's answer: the engine run, when it answered (ms), and the engine's reply. */
-export interface StartSearch { run: number; at_ms: number; answer: Results }
+/** `asks`: how many searches the run has had (1, or 2 after its second question). */
+export interface StartSearch { run: number; at_ms: number; answer: Results; asks?: number }
 /** One host the engine asks when it searches; `builtin`: one of AInode's own hosts. */
 export interface IndexPeer { endpoint: string; builtin: boolean }
 /** Upstream replies (searchbounties, getfundablemodels, searchmodels): each has a `results` list. */

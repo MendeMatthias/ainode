@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { StartSearch } from "./api";
 import type { Coverage } from "./chip";
-import { createStartSearch, NOT_SENT, RETRIES, RETRY_MS, windowShown } from "./startsearch";
+import { createStartSearch, NOT_SENT, RETRIES, RETRY_MS, SECOND_ASK_MS, windowShown } from "./startsearch";
 
 const answer = (run: number, answered = 1): StartSearch => ({
   run, at_ms: 1_000 * run,
@@ -158,5 +158,84 @@ describe("the start-up search, as the page runs it", () => {
       await tick();
       expect(n).toBe(1);
     });
+  });
+});
+
+describe("the second question, when no host answered", () => {
+  function clocked(reply: (n: number) => StartSearch) {
+    let t = 0;
+    const asks: number[] = [];
+    const got: number[] = [];
+    const s = createStartSearch({
+      ask: async () => { asks.push(t); return reply(asks.length); },
+      currentRun: () => 1,
+      onCoverage: (c) => got.push(c.answered),
+      now: () => t,
+    });
+    return { s, asks, got, at: (ms: number) => { t = ms; } };
+  }
+
+  it("asks once more after the wait, and never a third time", async () => {
+    // Nobody the first time, nobody the second: the backend says it was the second.
+    const h = clocked((n) => ({ ...answer(1, 0), asks: n }));
+    h.s.maybe("running", 1, SHOWN);
+    await tick();
+    h.at(SECOND_ASK_MS - 1);
+    for (let i = 0; i < 5; i++) h.s.maybe("running", 1, SHOWN);
+    await tick();
+    expect(h.asks).toEqual([0]);
+    h.at(SECOND_ASK_MS);
+    for (let i = 0; i < 5; i++) h.s.maybe("running", 1, SHOWN);
+    await tick();
+    expect(h.asks).toEqual([0, SECOND_ASK_MS]);
+    h.at(10 * SECOND_ASK_MS);
+    for (let i = 0; i < 5; i++) h.s.maybe("running", 1, SHOWN);
+    await tick();
+    expect(h.asks).toEqual([0, SECOND_ASK_MS]);
+    expect(h.got).toEqual([0, 0]);
+  });
+
+  it("shows the second answer when a host answers then", async () => {
+    const h = clocked((n) => ({ ...answer(1, n === 1 ? 0 : 1), asks: n }));
+    h.s.maybe("running", 1, SHOWN);
+    await tick();
+    h.at(SECOND_ASK_MS);
+    h.s.maybe("running", 1, SHOWN);
+    await tick();
+    expect(h.got).toEqual([0, 1]);
+  });
+
+  it("waits for the window to be shown, and for a running engine", async () => {
+    const h = clocked((n) => ({ ...answer(1, 0), asks: n }));
+    h.s.maybe("running", 1, SHOWN);
+    await tick();
+    h.at(SECOND_ASK_MS);
+    h.s.maybe("running", 1, { visible: false, minimized: false });
+    h.s.maybe("stopped", 1, SHOWN);
+    await tick();
+    expect(h.asks).toEqual([0]);
+    h.s.maybe("running", 1, SHOWN);
+    await tick();
+    expect(h.asks.length).toBe(2);
+  });
+
+  it("does not ask again when a host answered, or when the engine has restarted", async () => {
+    const ok = clocked(() => ({ ...answer(1, 1), asks: 1 }));
+    ok.s.maybe("running", 1, SHOWN);
+    await tick();
+    ok.at(SECOND_ASK_MS);
+    ok.s.maybe("running", 1, SHOWN);
+    await tick();
+    expect(ok.asks).toEqual([0]);
+
+    // A new run asks its own first question, not the old run's second.
+    const h = clocked(() => ({ ...answer(1, 0), asks: 1 }));
+    h.s.maybe("running", 1, SHOWN);
+    await tick();
+    h.at(SECOND_ASK_MS);
+    h.s.maybe("running", 2, SHOWN);
+    h.s.maybe("running", 2, SHOWN);
+    await tick();
+    expect(h.asks.length).toBe(2);
   });
 });

@@ -8,6 +8,12 @@
 // asks only while the engine runs and the window is shown, and only once it
 // knows whether the window is minimized (a login launch minimizes it before
 // the page has heard so).
+//
+// One second question: when hosts were asked and none answered, the page
+// asks once more SECOND_ASK_MS later, and the backend then searches once more
+// (backend/network.rs SECOND_ASK_AFTER). A host refuses an address for up to
+// a minute after a few broken connection attempts from it, and a start that
+// falls into that minute would otherwise leave "no host answered" on the chip.
 import type { StartSearch } from "./api";
 import { startSearchDue, type Coverage } from "./chip";
 import { coverageOf } from "./netview";
@@ -30,6 +36,8 @@ export const NOT_SENT = "Not sent: ";
 export const RETRY_MS = 5_000;
 /** At most this many such retries in one run without the window being hidden and shown again. */
 export const RETRIES = 3;
+/** No host answered: ask once more this long after that answer. A little more than the backend's 70 s. */
+export const SECOND_ASK_MS = 75_000;
 
 const message = (e: unknown) => (e instanceof Error ? e.message : typeof e === "string" ? e : "");
 
@@ -52,6 +60,8 @@ export function createStartSearch(deps: StartSearchDeps) {
   // starting or busy): the run keeps its search. It is asked for again once
   // the window has been hidden and shown, or RETRY_MS later, RETRIES times.
   let refused = { run: 0, at: 0, tries: 0, sawHidden: false };
+  // Nobody answered this run's first question: when to ask its second.
+  let second = { run: 0, at: 0 };
   return {
     /** Call on every state update and whenever the window may have come up. */
     maybe(engine: string, run: number, w: Window): boolean {
@@ -61,6 +71,11 @@ export function createStartSearch(deps: StartSearchDeps) {
         const again = refused.sawHidden || (refused.tries <= RETRIES && now() - refused.at >= RETRY_MS);
         if (!again) return false;
       }
+      if (second.run === run && second.run !== 0 && asked === run && engine === "running" && shown && now() >= second.at) {
+        // The run's second question; the backend allows no third.
+        second = { run: 0, at: 0 };
+        asked = 0;
+      }
       if (!startSearchDue(engine, run, asked, shown)) return false;
       asked = run;
       void deps.ask().then((r) => {
@@ -69,6 +84,7 @@ export function createStartSearch(deps: StartSearchDeps) {
         if (r.run !== deps.currentRun()) return;
         const c = coverageOf(r.answer, r.at_ms);
         if (c) deps.onCoverage(c, r.run);
+        if (c && c.asked > 0 && c.answered === 0 && (r.asks ?? 1) < 2) second = { run: r.run, at: now() + SECOND_ASK_MS };
       }).catch((e) => {
         if (message(e).startsWith(NOT_SENT) && asked === run) {
           // Nothing went out: this run's one search is still to come.
