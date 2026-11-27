@@ -131,22 +131,65 @@ pub fn run() {
         // Quit (Cmd+Q or the last window closing). Stop llama-server and the
         // helper before the process goes: the helper is a separate process
         // and would otherwise outlive us holding the socket and the store.
-        // Bounded by Engine::stop (SIGKILL at 8 s).
+        // Bounded by Engine::stop (SIGKILL at 8 s), and by QUIT_WAIT whatever
+        // happens (`finish_on`).
         if let RunEvent::Exit = event {
             if let Some(b) = handle.try_state::<Arc<Backend>>() {
                 let b = b.inner().clone();
-                tauri::async_runtime::block_on(async move {
-                    b.shutdown().await;
-                    // Only AInode's own distribution, so WSL gives its memory back.
-                    #[cfg(windows)]
-                    wsl::terminate().await;
-                });
+                let stopped = finish_on(
+                    tauri::async_runtime::handle().inner(),
+                    async move {
+                        b.shutdown().await;
+                        // Only AInode's own distribution, so WSL gives its memory back.
+                        #[cfg(windows)]
+                        wsl::terminate().await;
+                    },
+                    QUIT_WAIT,
+                );
+                if !stopped {
+                    // The next launch finds what is left (engine.rs, chat.rs).
+                    eprintln!("[quit] the engine did not stop within {} s; quitting anyway", QUIT_WAIT.as_secs());
+                }
             }
             // An update or a moved data folder asked for a restart (restart.rs).
             #[cfg(target_os = "linux")]
             restart::on_exit(handle);
         }
     });
+}
+
+/// The longest quitting waits for the engine and the chat to stop: more than
+/// Engine::stop needs at its slowest (SIGKILL at 8 s, then 2 s), and on
+/// Windows the end of AInode's distribution after it.
+const QUIT_WAIT: std::time::Duration = std::time::Duration::from_secs(20);
+
+/// Run `work` to its end on the runtime's own threads and wait for it on this
+/// thread, at most `limit`. True if it ended in time.
+///
+/// Quitting used `block_on` here, on the main thread, and AInode could stay
+/// running for ever with no window: seen on the Mac when Quit came a second
+/// after the start. While the main thread waits, the webview cannot hand an
+/// answer to the page, so the runtime thread that carries that answer waits
+/// for the main thread. If that thread was the one watching the runtime's
+/// timers and sockets, and the others were asleep, nothing wakes them: the
+/// engine's stop, which waits on a timer and on a socket, never ends, and
+/// neither thread moves again. `block_on` on a thread outside the runtime
+/// does not watch timers or sockets itself.
+///
+/// A spawned task does not have that gap: spawning wakes a sleeping runtime
+/// thread, which runs the task and then watches the timers and sockets while
+/// the task waits. And the wait here ends after `limit` in any case, so
+/// AInode always quits.
+fn finish_on<F>(runtime: &tokio::runtime::Handle, work: F, limit: std::time::Duration) -> bool
+where
+    F: std::future::Future<Output = ()> + Send + 'static,
+{
+    let (done, wait) = std::sync::mpsc::channel();
+    runtime.spawn(async move {
+        work.await;
+        let _ = done.send(());
+    });
+    wait.recv_timeout(limit).is_ok()
 }
 
 /// Paths, the window (Linux and Windows), the backend and its launch cleanup.
@@ -404,5 +447,75 @@ mod tests {
         ] {
             assert!(acl_refuses(cmd, body), "{cmd} must be refused: core:default allowed it, the UI does not use it");
         }
+    }
+
+    /// A runtime thread that woke from a timer and then waits for this
+    /// thread, as the webview's answer does at Quit. Returns when it is stuck;
+    /// send on the returned channel to let it go.
+    fn a_stuck_runtime_thread(rt: &tokio::runtime::Runtime) -> std::sync::mpsc::Sender<()> {
+        use std::time::Duration;
+        let (release, held) = std::sync::mpsc::channel::<()>();
+        let (stuck, is_stuck) = std::sync::mpsc::channel::<()>();
+        // As in the app: a task that reads a reply hands it to the task that
+        // answers the page, which then runs next on the same runtime thread.
+        let (reply, got) = tokio::sync::oneshot::channel::<()>();
+        rt.spawn(async move {
+            let _ = got.await;
+            let _ = stuck.send(());
+            let _ = held.recv();
+        });
+        rt.spawn(async move {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            let _ = reply.send(());
+        });
+        is_stuck.recv_timeout(Duration::from_secs(5)).expect("the task got stuck");
+        // The other runtime threads have nothing to do and go to sleep.
+        std::thread::sleep(Duration::from_millis(200));
+        release
+    }
+
+    #[test]
+    fn quitting_ends_while_a_runtime_thread_waits_for_the_main_thread() {
+        use std::time::{Duration, Instant};
+        let rt = tokio::runtime::Builder::new_multi_thread().worker_threads(3).enable_all().build().unwrap();
+        let release = a_stuck_runtime_thread(&rt);
+        let t0 = Instant::now();
+        // Like the engine's stop: it waits on a timer.
+        let ended = super::finish_on(rt.handle(), async { tokio::time::sleep(Duration::from_millis(100)).await }, Duration::from_secs(10));
+        assert!(ended, "the work ended");
+        assert!(t0.elapsed() < Duration::from_secs(5), "and soon: {:?}", t0.elapsed());
+        let _ = release.send(());
+    }
+
+    #[test]
+    fn quitting_gives_up_after_its_limit() {
+        use std::time::{Duration, Instant};
+        let rt = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().unwrap();
+        let t0 = Instant::now();
+        let ended = super::finish_on(rt.handle(), std::future::pending::<()>(), Duration::from_millis(300));
+        assert!(!ended);
+        assert!(t0.elapsed() < Duration::from_secs(5));
+    }
+
+    /// The control, run by hand (`cargo test --lib -- --ignored block_on`):
+    /// what quitting did before. `block_on` from a thread outside the runtime
+    /// never sees its timer while the one runtime thread that was awake is
+    /// stuck. Not run in CI: it shows a property of the runtime's scheduler,
+    /// and it is the test above that must hold.
+    #[test]
+    #[ignore]
+    fn block_on_does_not_end_while_that_thread_is_stuck() {
+        use std::time::Duration;
+        let rt = tokio::runtime::Builder::new_multi_thread().worker_threads(3).enable_all().build().unwrap();
+        let release = a_stuck_runtime_thread(&rt);
+        let h = rt.handle().clone();
+        let (done, wait) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            h.block_on(async { tokio::time::sleep(Duration::from_millis(100)).await });
+            let _ = done.send(());
+        });
+        assert!(wait.recv_timeout(Duration::from_secs(3)).is_err(), "a 100 ms timer did not fire in 3 s");
+        let _ = release.send(());
+        assert!(wait.recv_timeout(Duration::from_secs(5)).is_ok(), "it fires once the thread is free");
     }
 }
