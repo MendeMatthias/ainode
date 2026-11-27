@@ -65,14 +65,27 @@ pub struct StartSearch {
     pub run: u64,
     pub at_ms: u64,
     pub answer: Result<Value, String>,
+    /// How many searches this run has had: 1, or 2 after the second question.
+    pub asks: u8,
 }
 
 /// What the page gets from the start-up search: the run, when, and the answer.
 fn start_search_out(d: &StartSearch) -> Result<Value, String> {
     match &d.answer {
-        Ok(v) => Ok(json!({ "run": d.run, "at_ms": d.at_ms, "answer": v })),
+        Ok(v) => Ok(json!({ "run": d.run, "at_ms": d.at_ms, "answer": v, "asks": d.asks })),
         Err(e) => Err(e.clone()),
     }
+}
+
+/// Did the search ask hosts and hear from none? By the engine's own counters,
+/// as the page reads them (netview.ts `coverageOf`). A search that failed at
+/// the engine is not this: it is kept as the run's answer.
+fn nobody_answered(answer: &Result<Value, String>) -> bool {
+    let Ok(v) = answer else { return false };
+    let n = |k: &str| v["coverage"][k].as_u64().unwrap_or(0);
+    let answered = n("responses_received");
+    let asked = (answered + n("timed_out")).max(n("connected_peers_queried") + n("index_peers_queried"));
+    asked > 0 && answered == 0
 }
 
 /// One host of the list the engine asks when it searches (its index peers).
@@ -153,6 +166,15 @@ pub const INDEX_PEERS_MAX: usize = 4;
 /// How a start-up search refusal that sent nothing begins; the page may ask
 /// again later in the same run (startsearch.ts).
 pub const NOT_SENT: &str = "Not sent: ";
+/// When the start-up search asked and no host answered, the run gets one
+/// second question, this long after the first at the earliest. A v0.34.16
+/// host refuses every connection from an address for the rest of a minute
+/// after four broken connection attempts from it (`PQ1_UNAUTH_HANDSHAKE_LIMIT`,
+/// `PQ1_UNAUTH_WINDOW_S`), and everyone behind one shared address shares that
+/// count: a start that falls into that minute would otherwise show "no host
+/// answered" for as long as the chip keeps a count. Measured on 2026-11-27:
+/// refused until 51 s, answered at 61 s.
+pub const SECOND_ASK_AFTER: Duration = Duration::from_secs(70);
 /// What each host that does not answer costs a search, for the refusal's words.
 const SEARCH_PEER_WAIT: &str = "1.5 seconds";
 
@@ -175,11 +197,14 @@ impl Backend {
     /// One models-only network search with no words, once per engine run,
     /// so the home screen's chip can say how many hosts answered. The page
     /// asks for it when the engine runs and the window is shown (main.ts);
-    /// the backend makes sure there is never a second search in the same
+    /// the backend makes sure there is never another search in the same
     /// run, whoever asks and however often: a later call gets the first
-    /// answer (or its error) again. No timer: a new run comes only from an
-    /// engine start (the user's, the keeper's, a host switch). Before
-    /// consent there is no engine, so no search.
+    /// answer (or its error) again. One exception: when hosts were asked and
+    /// none answered, a call `SECOND_ASK_AFTER` or more later searches once
+    /// more, and that second answer is then the run's. No timer here: the
+    /// page asks. A new run comes only from an engine start (the user's, the
+    /// keeper's, a host switch). Before consent there is no engine, so no
+    /// search.
     ///
     /// A refusal in which nothing went to the network starts with
     /// `NOT_SENT` and does not use up the run's search: the engine is not
@@ -191,6 +216,11 @@ impl Backend {
     }
 
     pub(super) async fn start_search_within(&self, limit: Duration) -> Result<Value, String> {
+        self.start_search_with(limit, SECOND_ASK_AFTER).await
+    }
+
+    /// `second_after`: the wait before the run's second question (tests).
+    pub(super) async fn start_search_with(&self, limit: Duration, second_after: Duration) -> Result<Value, String> {
         self.require_running().map_err(|e| format!("{NOT_SENT}{e}"))?;
         // The run is counted only after the new helper has its index peers;
         // until then there is none to search for (second review, finding 2).
@@ -199,8 +229,14 @@ impl Backend {
         };
         // Held across the search: a second caller waits and then reads the answer.
         let mut slot = self.start_search.lock().await;
+        let now_ms = crate::state::now_unix() * 1000;
+        let mut asks = 1;
         if let Some(done) = slot.as_ref().filter(|d| d.run == run) {
-            return start_search_out(done);
+            let due = done.asks < 2 && nobody_answered(&done.answer) && now_ms.saturating_sub(done.at_ms) >= second_after.as_millis() as u64;
+            if !due {
+                return start_search_out(done);
+            }
+            asks = 2;
         }
         let answer = match self
             .engine
@@ -208,10 +244,15 @@ impl Backend {
             .call_with("searchmodels", json!([{ "text": "", "scope": "NETWORK", "limit": 50, "filters": { "object_kind": "MODEL" } }]), limit)
             .await
         {
+            // A second question that could not be sent leaves the first answer.
             Err(e @ crate::rpc::RpcError::Busy(_)) => return Err(format!("{NOT_SENT}{e}")),
             r => r.map_err(|e| e.to_string()),
         };
-        let done = StartSearch { run, at_ms: crate::state::now_unix() * 1000, answer };
+        if asks == 2 {
+            let heard = answer.as_ref().map(|v| v["coverage"]["responses_received"].as_u64().unwrap_or(0)).unwrap_or(0);
+            eprintln!("[network] no host answered the start-up search; asked once more: {heard} answered");
+        }
+        let done = StartSearch { run, at_ms: crate::state::now_unix() * 1000, answer, asks };
         let out = start_search_out(&done);
         *slot = Some(done);
         out
@@ -638,6 +679,13 @@ mod tests {
     /// and keeps the method and its first argument, in order.
     #[cfg(unix)]
     fn fake_engine(sock: &std::path::Path) -> std::sync::Arc<std::sync::Mutex<Vec<(String, String)>>> {
+        fake_engine_hearing(sock, std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true)))
+    }
+
+    /// The same, with a switch: while `heard` is false its searches report
+    /// that the one host asked did not answer.
+    #[cfg(unix)]
+    fn fake_engine_hearing(sock: &std::path::Path, heard: std::sync::Arc<std::sync::atomic::AtomicBool>) -> std::sync::Arc<std::sync::Mutex<Vec<(String, String)>>> {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         std::fs::create_dir_all(sock.parent().unwrap()).unwrap();
         let _ = std::fs::remove_file(sock);
@@ -648,6 +696,7 @@ mod tests {
             loop {
                 let (mut c, _) = listener.accept().await.unwrap();
                 let s3 = s2.clone();
+                let heard = heard.clone();
                 tokio::spawn(async move {
                     let mut req = Vec::new();
                     c.read_to_end(&mut req).await.unwrap();
@@ -655,7 +704,9 @@ mod tests {
                     let method = v["method"].as_str().unwrap_or("").to_string();
                     let arg = v["params"][0].as_str().map(str::to_string).unwrap_or_else(|| v["params"][0].to_string());
                     s3.lock().unwrap().push((method.clone(), arg));
-                    let result = if method == "searchmodels" {
+                    let result = if method == "searchmodels" && !heard.load(std::sync::atomic::Ordering::SeqCst) {
+                        json!({ "results": [], "coverage": { "connected_peers_queried": 0, "index_peers_queried": 0, "responses_received": 0, "timed_out": 1 } })
+                    } else if method == "searchmodels" {
                         json!({ "results": [], "coverage": { "connected_peers_queried": 1, "index_peers_queried": 1, "responses_received": 2, "timed_out": 0 } })
                     } else {
                         json!({ "schema_version": 2 })
@@ -988,6 +1039,60 @@ mod tests {
         assert_eq!(calls(&seen, "addmodelindex").len(), 1, "a start on a running engine gave the peers again");
         let _ = child.kill();
         let _ = child.wait();
+    }
+
+    /// No host answered the start-up search: the run gets one second
+    /// question, not before its time, and never a third.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn when_no_host_answered_the_run_asks_once_more() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let tmp = tempfile::tempdir().unwrap();
+        let b = backend(tmp.path());
+        let heard = std::sync::Arc::new(AtomicBool::new(false));
+        let seen = fake_engine_hearing(&b.paths.socket, heard.clone());
+        b.engine.mark_running_for_test(true);
+        b.after_engine_start().await;
+        let soon = Duration::from_secs(3600);
+        let first = b.start_search_with(VIEW_SEARCH_TIMEOUT, soon).await.unwrap();
+        assert_eq!((first["asks"].as_u64(), first["answer"]["coverage"]["timed_out"].as_u64()), (Some(1), Some(1)));
+        // Before its time: the first answer again, nothing sent.
+        heard.store(true, Ordering::SeqCst);
+        assert_eq!(b.start_search_with(VIEW_SEARCH_TIMEOUT, soon).await.unwrap(), first);
+        assert_eq!(b.network_start_search().await.unwrap(), first, "the real wait is not over either");
+        assert_eq!(calls(&seen, "searchmodels").len(), 1);
+        // Its time has come: one more search, and its answer is the run's.
+        let second = b.start_search_with(VIEW_SEARCH_TIMEOUT, Duration::ZERO).await.unwrap();
+        assert_eq!((second["asks"].as_u64(), second["run"].as_u64(), second["answer"]["coverage"]["responses_received"].as_u64()), (Some(2), Some(1), Some(2)));
+        assert_eq!(b.start_search_with(VIEW_SEARCH_TIMEOUT, Duration::ZERO).await.unwrap(), second);
+        assert_eq!(calls(&seen, "searchmodels").len(), 2);
+
+        // A run whose second question is not answered either: no third.
+        heard.store(false, Ordering::SeqCst);
+        b.engine.mark_running_for_test(false);
+        b.engine.mark_running_for_test(true);
+        b.after_engine_start().await;
+        b.start_search_with(VIEW_SEARCH_TIMEOUT, Duration::ZERO).await.unwrap();
+        let again = b.start_search_with(VIEW_SEARCH_TIMEOUT, Duration::ZERO).await.unwrap();
+        assert_eq!((again["asks"].as_u64(), again["run"].as_u64()), (Some(2), Some(2)));
+        for _ in 0..3 {
+            assert_eq!(b.start_search_with(VIEW_SEARCH_TIMEOUT, Duration::ZERO).await.unwrap(), again);
+        }
+        assert_eq!(calls(&seen, "searchmodels").len(), 4);
+    }
+
+    /// A host that answered is never asked a second time, whatever the wait.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn an_answered_start_up_search_is_not_asked_again() {
+        let tmp = tempfile::tempdir().unwrap();
+        let b = backend(tmp.path());
+        let seen = fake_engine(&b.paths.socket);
+        b.engine.mark_running_for_test(true);
+        b.after_engine_start().await;
+        let first = b.start_search_with(VIEW_SEARCH_TIMEOUT, Duration::ZERO).await.unwrap();
+        assert_eq!(b.start_search_with(VIEW_SEARCH_TIMEOUT, Duration::ZERO).await.unwrap(), first);
+        assert_eq!(calls(&seen, "searchmodels").len(), 1);
     }
 
     /// A failed start-up search is not tried again in the same run: the
